@@ -1,0 +1,57 @@
+#!/bin/bash
+
+echo "WiFi Network Manager"
+echo "===================="
+echo "1) Add network permanently (saved to config)"
+echo "2) Connect temporarily (until reboot)"
+echo ""
+read -p "Choose option [1/2]: " option
+
+read -p "Enter SSID: " ssid
+read -sp "Enter password: " password
+echo ""
+
+if [ "$option" = "1" ]; then
+    # Add permanently
+    read -p "Enter priority (higher = preferred, e.g., 4): " priority
+    
+    # Generate PSK
+    psk_output=$(wpa_passphrase "$ssid" "$password")
+    psk_line=$(echo "$psk_output" | grep "^\spsk=" | grep -v "#")
+    
+    # Append to config
+    sudo bash -c "cat >> /etc/wpa_supplicant/wpa_supplicant.conf" << NETWORK
+
+network={
+	ssid="$ssid"
+$psk_line
+	priority=$priority
+}
+NETWORK
+    
+    echo "Network added to config with priority $priority"
+    sudo wpa_cli -i wlan0 reconfigure
+    echo "WiFi reconfigured"
+    
+elif [ "$option" = "2" ]; then
+    # Connect temporarily using nmcli-style approach with wpa_cli
+    echo "Connecting temporarily..."
+    
+    # Generate encrypted PSK
+    psk=$(wpa_passphrase "$ssid" "$password" | grep "^\spsk=" | grep -v "#" | cut -d= -f2)
+    
+    # Add temporary network
+    network_id=$(sudo wpa_cli -i wlan0 add_network | tail -n1)
+    sudo wpa_cli -i wlan0 set_network $network_id ssid "\"$ssid\"" > /dev/null
+    sudo wpa_cli -i wlan0 set_network $network_id psk $psk > /dev/null
+    sudo wpa_cli -i wlan0 enable_network $network_id > /dev/null
+    sudo wpa_cli -i wlan0 select_network $network_id > /dev/null
+    
+    echo "Attempting to connect to $ssid..."
+    echo "Note: This will NOT persist after reboot"
+    echo "Connection may drop your current SSH session!"
+    
+else
+    echo "Invalid option"
+    exit 1
+fi

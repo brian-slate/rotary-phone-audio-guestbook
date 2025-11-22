@@ -41,6 +41,19 @@ To accommodate either type, you'll need to update the `config.yaml` with the app
   - [Here's](https://superuser.com/questions/53957/what-do-alsa-devices-like-hw0-0-mean-how-do-i-figure-out-which-to-use) a good reference to device selection.
   - You can also check [this](https://stackoverflow.com/questions/32838279/getting-list-of-audio-input-devices-in-python) from Python.
 
+## Ominous Button (Optional)
+
+Add a momentary pushbutton wired between your chosen GPIO (see `ominous_gpio` in `config.yaml`) and GND.
+
+- Switch type: Most pushbuttons are Normally Open (NO). Set `ominous_type: NO` (default). If you use an NC style microswitch (e.g., V-156-1C25), set `ominous_type: NC`.
+- Debounce: Adjust `ominous_bounce_time` if you see multiple triggers on one press.
+- Audio routing: The ominous sound plays through the same output device as greeting/recordings. If you want it audible without lifting the handset, consider an external speaker amp on your USB audio adapter’s output.
+- Behavior: By default `ominous_allow_during_call: false` so it won’t interrupt an active recording.
+
+Aesthetic options
+- Big red “arcade” button (24–30 mm) for an obvious, dramatic look.
+- Metal anti‑vandal pushbutton in brass/gold finish for a Gatsby/deco vibe; some models have illuminated rings you can power from 5V. Keep in mind LEDs on switches require separate wiring and aren’t controlled by this app.
+
 ## Optional: Microphone Replacement
 
 For improved sound quality, consider replacing the built-in [carbon microphone](https://en.wikipedia.org/wiki/Carbon_microphone).
