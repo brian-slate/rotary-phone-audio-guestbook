@@ -201,6 +201,7 @@ class AudioGuestBook:
     def _led_recording_animation_loop(self):
         """
         Animation loop: randomly pulse LEDs at 80% max brightness like old-timey computer.
+        Uses amber, red, and white tones.
         """
         if self.pixels is None:
             return
@@ -210,13 +211,17 @@ class AudioGuestBook:
         current = [0] * self.LED_COUNT
         speeds = [random.randint(5, 20) for _ in range(self.LED_COUNT)]
         
-        # Colors to use (warm amber/orange tones for old-timey feel)
+        # Colors to use (amber, red, white - old-timey computer feel)
         colors = [
-            (255, 100, 0),   # Orange
-            (255, 150, 0),   # Amber
-            (255, 200, 50),  # Warm yellow
-            (200, 80, 0),    # Deep orange
-            (255, 120, 20),  # Light orange
+            (255, 80, 0),    # Amber (more red/orange)
+            (255, 50, 0),    # Deep amber
+            (255, 100, 20),  # Warm amber
+            (255, 30, 0),    # Red-orange
+            (200, 20, 0),    # Deep red
+            (255, 60, 60),   # Soft red
+            (255, 200, 180), # Warm white
+            (255, 220, 200), # Soft white
+            (255, 180, 150), # Peachy white
         ]
         led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
         
@@ -248,7 +253,7 @@ class AudioGuestBook:
     
     def led_stop_animation(self):
         """
-        Stop the recording animation and return to ready state.
+        Stop the recording animation, show saved animation, then return to ready state.
         """
         if self.pixels is None:
             return
@@ -259,9 +264,49 @@ class AudioGuestBook:
             self.led_animation_thread.join(timeout=1.0)
             self.led_animation_thread = None
         
+        # Show "saved" animation
+        self.led_saved_animation()
+        
         # Return to ready state
         self.led_show_ready_state()
         logger.info("Stopped LED animation, returned to ready state")
+    
+    def led_saved_animation(self):
+        """
+        "Saved!" animation: quick flash all LEDs to green at 100% brightness.
+        Fade in quickly, hold briefly, fade out.
+        """
+        if self.pixels is None:
+            return
+        
+        logger.info("Playing saved animation...")
+        
+        # Quick fade in to green (100% brightness)
+        steps = 15
+        for i in range(steps):
+            brightness = i / steps
+            green_value = int(255 * brightness)
+            self.pixels.fill((0, green_value, 0))
+            self.pixels.show()
+            time.sleep(0.02)  # 20ms per step = 0.3s fade in
+        
+        # Hold at full green briefly
+        self.pixels.fill((0, 255, 0))
+        self.pixels.show()
+        time.sleep(0.5)  # Hold for 0.5 seconds
+        
+        # Quick fade out
+        for i in range(steps, -1, -1):
+            brightness = i / steps
+            green_value = int(255 * brightness)
+            self.pixels.fill((0, green_value, 0))
+            self.pixels.show()
+            time.sleep(0.02)  # 20ms per step = 0.3s fade out
+        
+        # Turn off all LEDs
+        self.pixels.fill((0, 0, 0))
+        self.pixels.show()
+        time.sleep(0.1)
     
     def led_cleanup(self):
         """
