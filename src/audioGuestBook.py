@@ -135,43 +135,22 @@ class AudioGuestBook:
     
     def led_startup_animation(self):
         """
-        Startup animation: fade all LEDs to green, hold 1.5s, fade out, then show status LED.
+        Startup: just show ready state LED (no animation).
+        The boot LED service shows amber breathing during boot.
         """
         if self.pixels is None:
             return
         
-        logger.info("Running LED startup animation...")
+        logger.info("Guestbook ready - showing ready state LED")
         
-        # Fade in all LEDs to green (100% brightness)
-        steps = 30
-        for i in range(steps):
-            brightness = i / steps
-            green_value = int(255 * brightness)
-            self.pixels.fill((0, green_value, 0))
-            self.pixels.show()
-            time.sleep(0.05)  # 50ms per step = 1.5s total fade in
-        
-        # Hold at full green for 1.5 seconds
-        self.pixels.fill((0, 255, 0))
-        self.pixels.show()
-        time.sleep(1.5)
-        
-        # Fade out all LEDs
-        for i in range(steps, -1, -1):
-            brightness = i / steps
-            green_value = int(255 * brightness)
-            self.pixels.fill((0, green_value, 0))
-            self.pixels.show()
-            time.sleep(0.05)  # 50ms per step = 1.5s total fade out
-        
-        # Turn off all LEDs
+        # Clear any boot animation and go straight to ready state
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
         time.sleep(0.1)
         
-        # Turn on status LED (7th LED, index 6) at 50% brightness green
+        # Show ready state
         self.led_show_ready_state()
-        logger.info("LED startup animation complete. System ready.")
+        logger.info("LED ready state active.")
     
     def led_show_ready_state(self):
         """
