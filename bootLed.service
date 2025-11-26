@@ -1,7 +1,6 @@
 [Unit]
 Description=Boot LED Animation - Amber breathing while system starts
-DefaultDependencies=no
-After=local-fs.target
+After=basic.target
 Before=audioGuestBook.service
 
 [Service]
