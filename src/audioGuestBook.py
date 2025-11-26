@@ -175,33 +175,46 @@ class AudioGuestBook:
     
     def led_show_ready_state(self):
         """
-        Show the ready state: single green LED (7th LED) at 50% brightness.
+        Show the ready state: single green LED (7th LED) at 40% brightness.
         """
         if self.pixels is None:
             return
         
         self.pixels.fill((0, 0, 0))  # Turn off all LEDs first
-        # 50% brightness green on status LED
-        self.pixels[self.LED_STATUS_INDEX] = (0, 128, 0)
+        # 40% brightness green on status LED (reduced from 50%)
+        self.pixels[self.LED_STATUS_INDEX] = (0, 102, 0)
         self.pixels.show()
     
-    def led_start_recording_animation(self):
+    def led_start_greeting_animation(self):
         """
-        Start the recording animation: all LEDs randomly pulsing like old-timey computer.
-        Runs in a separate thread.
+        Start the greeting animation: all LEDs randomly pulsing in amber/red.
+        Used while greeting is playing. Runs in a separate thread.
         """
         if self.pixels is None:
             return
         
         self.led_animation_running = True
-        self.led_animation_thread = threading.Thread(target=self._led_recording_animation_loop, daemon=True)
+        self.led_animation_mode = "greeting"  # amber/red mix
+        self.led_animation_thread = threading.Thread(target=self._led_animation_loop, daemon=True)
         self.led_animation_thread.start()
-        logger.info("Started LED recording animation")
+        logger.info("Started LED greeting animation")
     
-    def _led_recording_animation_loop(self):
+    def led_switch_to_recording_mode(self):
+        """
+        Switch animation to recording mode: all red LEDs.
+        Called when beep plays and recording starts.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_mode = "recording"  # all red
+        logger.info("Switched LED animation to recording mode (all red)")
+    
+    def _led_animation_loop(self):
         """
         Animation loop: randomly pulse LEDs at 80% max brightness like old-timey computer.
-        Uses amber, red, and white tones.
+        Mode "greeting": amber/red tones
+        Mode "recording": all red tones
         """
         if self.pixels is None:
             return
@@ -211,21 +224,38 @@ class AudioGuestBook:
         current = [0] * self.LED_COUNT
         speeds = [random.randint(5, 20) for _ in range(self.LED_COUNT)]
         
-        # Colors to use (amber, red, white - old-timey computer feel)
-        colors = [
+        # Greeting colors (amber and red mix)
+        greeting_colors = [
             (255, 80, 0),    # Amber (more red/orange)
             (255, 50, 0),    # Deep amber
             (255, 100, 20),  # Warm amber
             (255, 30, 0),    # Red-orange
             (200, 20, 0),    # Deep red
             (255, 60, 60),   # Soft red
-            (255, 200, 180), # Warm white
-            (255, 220, 200), # Soft white
-            (255, 180, 150), # Peachy white
         ]
-        led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
+        
+        # Recording colors (all red tones)
+        recording_colors = [
+            (255, 0, 0),     # Pure red
+            (200, 0, 0),     # Dark red
+            (255, 20, 20),   # Bright red
+            (180, 0, 0),     # Deep red
+            (255, 40, 40),   # Soft red
+            (220, 10, 10),   # Medium red
+        ]
+        
+        led_colors = [random.choice(greeting_colors) for _ in range(self.LED_COUNT)]
+        current_mode = "greeting"
         
         while self.led_animation_running:
+            # Check if mode changed and update colors
+            if hasattr(self, 'led_animation_mode') and self.led_animation_mode != current_mode:
+                current_mode = self.led_animation_mode
+                colors = recording_colors if current_mode == "recording" else greeting_colors
+                led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
+            
+            colors = recording_colors if current_mode == "recording" else greeting_colors
+            
             for i in range(self.LED_COUNT):
                 # Move current brightness toward target
                 if current[i] < targets[i]:
@@ -378,8 +408,8 @@ class AudioGuestBook:
         # Ensure clean state by forcing stop of any existing processes
         self.stop_recording_and_playback()
 
-        # Start LED recording animation
-        self.led_start_recording_animation()
+        # Start LED greeting animation (amber/red mix)
+        self.led_start_greeting_animation()
 
         self.current_event = CurrentEvent.HOOK  # Ensure playback can continue
         # Start the greeting playback in a separate thread
@@ -432,9 +462,10 @@ class AudioGuestBook:
         if self.current_event == CurrentEvent.HOOK and include_beep:
             self.start_recording(output_file)
 
-        # Play the beep
+        # Play the beep and switch to recording LED mode
         if self.current_event == CurrentEvent.HOOK:
             logger.info("Playing beep...")
+            self.led_switch_to_recording_mode()  # Switch LEDs to all red
             self.audio_interface.play_audio(
                 self.config["beep"],
                 self.config["beep_volume"],
