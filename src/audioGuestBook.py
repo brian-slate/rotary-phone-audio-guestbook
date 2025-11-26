@@ -126,7 +126,7 @@ class AudioGuestBook:
             )
             logger.info(f"Initialized {self.LED_COUNT} LEDs on GPIO 18")
             
-            # Run startup animation
+            # Stop any booting animation and run startup animation
             self.led_startup_animation()
             
         except Exception as e:
@@ -175,14 +175,14 @@ class AudioGuestBook:
     
     def led_show_ready_state(self):
         """
-        Show the ready state: single green LED (7th LED) at 40% brightness.
+        Show the ready state: single green LED (7th LED) at 30% brightness.
         """
         if self.pixels is None:
             return
         
         self.pixels.fill((0, 0, 0))  # Turn off all LEDs first
-        # 40% brightness green on status LED (reduced from 50%)
-        self.pixels[self.LED_STATUS_INDEX] = (0, 102, 0)
+        # 30% brightness green on status LED
+        self.pixels[self.LED_STATUS_INDEX] = (0, 77, 0)
         self.pixels.show()
     
     def led_start_greeting_animation(self):

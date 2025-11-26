@@ -1,11 +1,13 @@
 [Unit]
 Description=Rotary Phone Guest Book Project
 After=multi-user.target
+Conflicts=bootLed.service
 
 [Service]
 WorkingDirectory=/home/admin/rotary-phone-audio-guestbook
 Type=simple
 Restart=always
+ExecStartPre=/bin/systemctl stop bootLed.service
 ExecStart=/usr/bin/python3 src/audioGuestBook.py
 
 [Install]
