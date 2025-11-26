@@ -4,6 +4,8 @@ import logging
 import os
 import sys
 import threading
+import random
+import time
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -12,6 +14,13 @@ from signal import pause
 import yaml
 import RPi.GPIO as GPIO
 from gpiozero import Button
+
+try:
+    import board
+    import neopixel
+    LED_AVAILABLE = True
+except ImportError:
+    LED_AVAILABLE = False
 
 from audioInterface import AudioInterface
 
@@ -37,6 +46,12 @@ class AudioGuestBook:
         config (dict): Configuration parameters loaded from the YAML file.
         audio_interface (AudioInterface): Interface for audio playback and recording.
     """
+
+    # LED Configuration
+    LED_COUNT = 13           # Number of LEDs in the strip
+    LED_PIN = board.D18 if LED_AVAILABLE else None  # GPIO 18 (PWM)
+    LED_BRIGHTNESS = 0.8     # Default brightness (0.0 to 1.0)
+    LED_STATUS_INDEX = 6     # 7th LED (0-indexed) for status indicator
 
     def __init__(self, config_path):
         """
@@ -66,10 +81,17 @@ class AudioGuestBook:
             mixer_control_name=self.config["mixer_control_name"],
         )
 
+        # Initialize LEDs
+        self.setup_leds()
+
         self.setup_hook()
         self.setup_record_greeting()
         self.setup_shutdown_button()
         self.current_event = CurrentEvent.NONE
+        
+        # LED animation control
+        self.led_animation_running = False
+        self.led_animation_thread = None
 
     def load_config(self):
         """
@@ -84,6 +106,174 @@ class AudioGuestBook:
         except FileNotFoundError as e:
             logger.error(f"Configuration file not found: {e}")
             sys.exit(1)
+
+    def setup_leds(self):
+        """
+        Initialize the WS2811 LED strip and run startup animation.
+        """
+        if not LED_AVAILABLE:
+            logger.warning("NeoPixel library not available. LED features disabled.")
+            self.pixels = None
+            return
+        
+        try:
+            self.pixels = neopixel.NeoPixel(
+                self.LED_PIN,
+                self.LED_COUNT,
+                brightness=self.LED_BRIGHTNESS,
+                auto_write=False,
+                pixel_order=neopixel.RGB
+            )
+            logger.info(f"Initialized {self.LED_COUNT} LEDs on GPIO 18")
+            
+            # Run startup animation
+            self.led_startup_animation()
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize LEDs: {e}")
+            self.pixels = None
+    
+    def led_startup_animation(self):
+        """
+        Startup animation: fade all LEDs to green, hold 1.5s, fade out, then show status LED.
+        """
+        if self.pixels is None:
+            return
+        
+        logger.info("Running LED startup animation...")
+        
+        # Fade in all LEDs to green (100% brightness)
+        steps = 30
+        for i in range(steps):
+            brightness = i / steps
+            green_value = int(255 * brightness)
+            self.pixels.fill((0, green_value, 0))
+            self.pixels.show()
+            time.sleep(0.05)  # 50ms per step = 1.5s total fade in
+        
+        # Hold at full green for 1.5 seconds
+        self.pixels.fill((0, 255, 0))
+        self.pixels.show()
+        time.sleep(1.5)
+        
+        # Fade out all LEDs
+        for i in range(steps, -1, -1):
+            brightness = i / steps
+            green_value = int(255 * brightness)
+            self.pixels.fill((0, green_value, 0))
+            self.pixels.show()
+            time.sleep(0.05)  # 50ms per step = 1.5s total fade out
+        
+        # Turn off all LEDs
+        self.pixels.fill((0, 0, 0))
+        self.pixels.show()
+        time.sleep(0.1)
+        
+        # Turn on status LED (7th LED, index 6) at 50% brightness green
+        self.led_show_ready_state()
+        logger.info("LED startup animation complete. System ready.")
+    
+    def led_show_ready_state(self):
+        """
+        Show the ready state: single green LED (7th LED) at 50% brightness.
+        """
+        if self.pixels is None:
+            return
+        
+        self.pixels.fill((0, 0, 0))  # Turn off all LEDs first
+        # 50% brightness green on status LED
+        self.pixels[self.LED_STATUS_INDEX] = (0, 128, 0)
+        self.pixels.show()
+    
+    def led_start_recording_animation(self):
+        """
+        Start the recording animation: all LEDs randomly pulsing like old-timey computer.
+        Runs in a separate thread.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = True
+        self.led_animation_thread = threading.Thread(target=self._led_recording_animation_loop, daemon=True)
+        self.led_animation_thread.start()
+        logger.info("Started LED recording animation")
+    
+    def _led_recording_animation_loop(self):
+        """
+        Animation loop: randomly pulse LEDs at 80% max brightness like old-timey computer.
+        """
+        if self.pixels is None:
+            return
+        
+        # Initialize random brightness targets for each LED
+        targets = [random.randint(50, 255) for _ in range(self.LED_COUNT)]
+        current = [0] * self.LED_COUNT
+        speeds = [random.randint(5, 20) for _ in range(self.LED_COUNT)]
+        
+        # Colors to use (warm amber/orange tones for old-timey feel)
+        colors = [
+            (255, 100, 0),   # Orange
+            (255, 150, 0),   # Amber
+            (255, 200, 50),  # Warm yellow
+            (200, 80, 0),    # Deep orange
+            (255, 120, 20),  # Light orange
+        ]
+        led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
+        
+        while self.led_animation_running:
+            for i in range(self.LED_COUNT):
+                # Move current brightness toward target
+                if current[i] < targets[i]:
+                    current[i] = min(current[i] + speeds[i], targets[i])
+                else:
+                    current[i] = max(current[i] - speeds[i], targets[i])
+                
+                # If reached target, pick a new random target
+                if current[i] == targets[i]:
+                    targets[i] = random.randint(30, 255)
+                    speeds[i] = random.randint(5, 25)
+                    # Occasionally change color
+                    if random.random() < 0.1:
+                        led_colors[i] = random.choice(colors)
+                
+                # Apply brightness (scale by 0.8 for 80% max brightness)
+                brightness_factor = (current[i] / 255) * 0.8
+                r = int(led_colors[i][0] * brightness_factor)
+                g = int(led_colors[i][1] * brightness_factor)
+                b = int(led_colors[i][2] * brightness_factor)
+                self.pixels[i] = (r, g, b)
+            
+            self.pixels.show()
+            time.sleep(0.03)  # ~33fps animation
+    
+    def led_stop_animation(self):
+        """
+        Stop the recording animation and return to ready state.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = False
+        
+        if self.led_animation_thread is not None:
+            self.led_animation_thread.join(timeout=1.0)
+            self.led_animation_thread = None
+        
+        # Return to ready state
+        self.led_show_ready_state()
+        logger.info("Stopped LED animation, returned to ready state")
+    
+    def led_cleanup(self):
+        """
+        Turn off all LEDs on shutdown.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = False
+        self.pixels.fill((0, 0, 0))
+        self.pixels.show()
+        logger.info("LEDs turned off")
 
     def setup_hook(self):
         """
@@ -142,6 +332,9 @@ class AudioGuestBook:
 
         # Ensure clean state by forcing stop of any existing processes
         self.stop_recording_and_playback()
+
+        # Start LED recording animation
+        self.led_start_recording_animation()
 
         self.current_event = CurrentEvent.HOOK  # Ensure playback can continue
         # Start the greeting playback in a separate thread
@@ -216,6 +409,9 @@ class AudioGuestBook:
             logger.info("Phone on hook. Ending call and saving recording.")
             # Stop any ongoing processes before resetting the state
             self.stop_recording_and_playback()
+
+            # Stop LED animation and return to ready state
+            self.led_stop_animation()
 
             # Reset everything to initial state
             self.current_event = CurrentEvent.NONE
@@ -358,7 +554,12 @@ class AudioGuestBook:
         Starts the main event loop waiting for phone hook events.
         """
         logger.info("System ready. Lift the handset to start.")
-        pause()
+        try:
+            pause()
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+        finally:
+            self.led_cleanup()
 
 
 if __name__ == "__main__":
