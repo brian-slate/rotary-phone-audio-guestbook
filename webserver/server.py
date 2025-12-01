@@ -93,6 +93,36 @@ def normalize_path(path):
     return str(path.as_posix())
 
 
+def get_audio_files(audio_type):
+    """Get list of available audio files for a specific type."""
+    sounds_dir = BASE_DIR / "sounds" / audio_type
+    if not sounds_dir.exists():
+        sounds_dir.mkdir(parents=True, exist_ok=True)
+    
+    files = [f.name for f in sounds_dir.iterdir() if f.is_file() and f.suffix.lower() == '.wav']
+    return sorted(files)
+
+
+def convert_audio_to_wav(input_path, output_path, sample_rate=44100, channels=2):
+    """Convert audio file to WAV format using ffmpeg."""
+    try:
+        subprocess.run([
+            "ffmpeg", "-i", str(input_path),
+            "-ar", str(sample_rate),
+            "-ac", str(channels),
+            "-f", "wav",
+            "-y",  # Overwrite output file if exists
+            str(output_path)
+        ], check=True, capture_output=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg conversion failed: {e.stderr.decode()}")
+        return False
+    except FileNotFoundError:
+        logger.error("FFmpeg not found. Please install ffmpeg.")
+        return False
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -155,10 +185,58 @@ def edit_config():
                 if f"{field}_file" in request.files:
                     file = request.files[f"{field}_file"]
                     if file.filename:
-                        file_path = upload_folder / file.filename
-                        file.save(file_path)
-                        # Store path relative to BASE_DIR for portability
-                        config[field] = normalize_path(file_path.relative_to(BASE_DIR))
+                        # Get custom name or use original filename
+                        custom_name = request.form.get(f"{field}_name", "").strip()
+                        if custom_name:
+                            # Sanitize filename
+                            custom_name = custom_name.replace(" ", "-").replace("/", "-")
+                            base_name = custom_name if custom_name.endswith(".wav") else f"{custom_name}.wav"
+                        else:
+                            # Use original filename without extension, add .wav
+                            base_name = Path(file.filename).stem + ".wav"
+                        
+                        # Determine subdirectory based on field type
+                        subdir_map = {
+                            "greeting": "greetings",
+                            "beep": "beeps",
+                            "time_exceeded": "time_exceeded"
+                        }
+                        subdir = subdir_map[field]
+                        target_dir = BASE_DIR / "sounds" / subdir
+                        target_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        # Handle duplicate filenames
+                        final_path = target_dir / base_name
+                        counter = 1
+                        while final_path.exists():
+                            stem = Path(base_name).stem
+                            final_path = target_dir / f"{stem}-{counter}.wav"
+                            counter += 1
+                        
+                        # Check if file is already WAV
+                        file_ext = Path(file.filename).suffix.lower()
+                        if file_ext == ".wav":
+                            # Save directly
+                            file.save(str(final_path))
+                            logger.info(f"Saved WAV file directly: {final_path}")
+                        else:
+                            # Save to temp location and convert
+                            temp_path = upload_folder / file.filename
+                            file.save(str(temp_path))
+                            logger.info(f"Converting {file_ext} to WAV: {temp_path} -> {final_path}")
+                            
+                            if convert_audio_to_wav(temp_path, final_path):
+                                logger.info(f"Successfully converted to WAV: {final_path}")
+                                temp_path.unlink()  # Delete temp file
+                            else:
+                                flash(f"Failed to convert {file.filename} to WAV. Please try a different file.", "error")
+                                if temp_path.exists():
+                                    temp_path.unlink()
+                                continue
+                        
+                        # Update config to point to new file
+                        config[field] = normalize_path(final_path.relative_to(BASE_DIR))
+                        logger.info(f"Updated config[{field}] to: {config[field]}")
 
             update_config(request.form)
 
@@ -188,7 +266,148 @@ def edit_config():
         logger.error(f"Configuration file not found: {e}")
         current_config = {}
 
-    return render_template("config.html", config=current_config)
+    # Get available audio files for each type
+    available_greetings = get_audio_files("greetings")
+    available_beeps = get_audio_files("beeps")
+    available_time_exceeded = get_audio_files("time_exceeded")
+
+    return render_template(
+        "config.html",
+        config=current_config,
+        available_greetings=available_greetings,
+        available_beeps=available_beeps,
+        available_time_exceeded=available_time_exceeded
+    )
+
+
+@app.route("/delete-audio/<audio_type>/<filename>", methods=["POST"])
+def delete_audio(audio_type, filename):
+    """Delete a specific audio file from sounds directory."""
+    # Validate audio type
+    valid_types = ["greetings", "beeps", "time_exceeded"]
+    if audio_type not in valid_types:
+        return jsonify({"success": False, "message": "Invalid audio type"}), 400
+    
+    audio_dir = BASE_DIR / "sounds" / audio_type
+    file_path = audio_dir / filename
+    
+    # Check if more than one file exists
+    available_files = get_audio_files(audio_type)
+    if len(available_files) <= 1:
+        return jsonify({
+            "success": False,
+            "message": "Cannot delete the last audio file. At least one must remain."
+        }), 400
+    
+    try:
+        # Check if this is the currently active file in config
+        with config_path.open("r") as f:
+            current_config = yaml.load(f)
+        
+        # Map audio_type to config field
+        type_to_field = {
+            "greetings": "greeting",
+            "beeps": "beep",
+            "time_exceeded": "time_exceeded"
+        }
+        field = type_to_field[audio_type]
+        current_file = Path(current_config.get(field, "")).name
+        
+        # Delete the file
+        if file_path.exists():
+            file_path.unlink()
+            logger.info(f"Deleted audio file: {file_path}")
+            
+            # If we deleted the active file, switch to the first remaining one
+            if current_file == filename:
+                remaining_files = get_audio_files(audio_type)
+                if remaining_files:
+                    new_path = audio_dir / remaining_files[0]
+                    current_config[field] = normalize_path(new_path.relative_to(BASE_DIR))
+                    with config_path.open("w") as f:
+                        yaml.dump(current_config, f)
+                    logger.info(f"Switched active {field} to: {remaining_files[0]}")
+                    
+                    # Restart service
+                    try:
+                        subprocess.run(["sudo", "systemctl", "restart", "audioGuestBook.service"], check=True)
+                    except subprocess.CalledProcessError as e:
+                        logger.error(f"Failed to restart service: {e}")
+            
+            return jsonify({
+                "success": True,
+                "message": f"{filename} has been deleted."
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": "File not found."
+            }), 404
+    except Exception as e:
+        logger.error(f"Error deleting audio file: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Error deleting file: {str(e)}"
+        }), 500
+
+
+@app.route("/sounds/<audio_type>/<filename>")
+def serve_sound(audio_type, filename):
+    """Serve a sound file for preview with streaming support."""
+    valid_types = ["greetings", "beeps", "time_exceeded"]
+    if audio_type not in valid_types:
+        return jsonify({"error": "Invalid audio type"}), 400
+    
+    audio_dir = BASE_DIR / "sounds" / audio_type
+    file_path = audio_dir / filename
+    
+    if not file_path.exists():
+        logger.error(f"Sound file not found: {file_path}")
+        return jsonify({"error": "File not found"}), 404
+    
+    # Get file size for range requests
+    file_size = file_path.stat().st_size
+    
+    # Parse Range header
+    range_header = request.headers.get('Range', None)
+    
+    if range_header:
+        # Parse the range header
+        byte1, byte2 = 0, None
+        match = re.search(r'(\d+)-(\d*)', range_header)
+        groups = match.groups()
+        
+        if groups[0]:
+            byte1 = int(groups[0])
+        if groups[1]:
+            byte2 = int(groups[1])
+        
+        if byte2 is None:
+            byte2 = file_size - 1
+        
+        length = byte2 - byte1 + 1
+        
+        # Create the response with the proper headers for range request
+        resp = Response(
+            generate_file_chunks(str(file_path), byte1, byte2),
+            status=206,
+            mimetype='audio/wav',
+            direct_passthrough=True
+        )
+        
+        resp.headers.add('Content-Range', f'bytes {byte1}-{byte2}/{file_size}')
+        resp.headers.add('Accept-Ranges', 'bytes')
+        resp.headers.add('Content-Length', str(length))
+        return resp
+    
+    # If no range header, serve the whole file
+    resp = Response(
+        generate_file_chunks(str(file_path), 0, file_size - 1),
+        mimetype='audio/wav'
+    )
+    resp.headers.add('Accept-Ranges', 'bytes')
+    resp.headers.add('Content-Length', str(file_size))
+    return resp
 
 
 @app.route("/recordings/<filename>")
