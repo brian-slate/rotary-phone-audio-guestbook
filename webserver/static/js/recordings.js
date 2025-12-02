@@ -65,29 +65,35 @@ function loadRecordings() {
       }
 
       try {
-        // Initialize Plyr for all audio elements
-        console.log("Initializing audio players");
+        // Initialize Plyr only on desktop/tablet (md and up)
+        const isDesktop = window.matchMedia && window.matchMedia('(min-width: 768px)').matches;
+        console.log("Initializing audio players (desktop only):", isDesktop);
         const audioElements = document.querySelectorAll('audio');
         console.log(`Found ${audioElements.length} audio elements`);
 
-        const players = Array.from(audioElements).map(p => {
-          // Ensure audio elements are set up for proper loading
-          p.preload = "metadata";
+        let players = [];
+        if (isDesktop) {
+          players = Array.from(audioElements).map(p => {
+            // Ensure audio elements are set up for proper loading
+            p.preload = "metadata";
 
-          // Create and configure the Plyr instance with simplified controls
-          // Remove the settings control from the options
-          return new Plyr(p, {
-            controls: ['play', 'progress', 'current-time', 'duration', 'mute', 'volume'],
-            displayDuration: true,
-            hideControls: false,
-            invertTime: false,
-            toggleInvert: false,
-            seekTime: 5,
-            tooltips: { controls: false, seek: false },
-            fullscreen: { enabled: false },
-            keyboard: { focused: true, global: false }
+            // Desktop: full controls with progress
+            return new Plyr(p, {
+              controls: ['play', 'progress', 'current-time', 'duration', 'mute', 'volume'],
+              displayDuration: true,
+              hideControls: false,
+              invertTime: false,
+              toggleInvert: false,
+              seekTime: 5,
+              tooltips: { controls: false, seek: false },
+              fullscreen: { enabled: false },
+              keyboard: { focused: true, global: false }
+            });
           });
-        });
+        } else {
+          // Mobile: keep native <audio> hidden and control via compact button
+          Array.from(audioElements).forEach(p => { p.preload = 'metadata'; });
+        }
 
         improveAudioDurationDetection();
         console.log(`Initialized ${players.length} Plyr players`);
@@ -241,6 +247,16 @@ function createRecordingItem(recording) {
        </span>`
     : '';
 
+  const mobileControls = `
+      <div class=\"sm:hidden mt-2 flex items-center gap-3\">
+        <button class=\"mobile-play bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm\" title=\"Play/Pause\">
+          <i class=\"fas fa-play text-sm\"></i>
+        </button>
+        <span class=\"mobile-duration text-xs text-gray-600 dark:text-gray-400\"></span>
+      </div>`;
+
+  const mobileDate = `<p class=\"sm:hidden mt-1 text-xs text-gray-500 dark:text-gray-400\">${formattedDate}</p>`;
+
   row.innerHTML = `
       <td class="p-2 text-center"><input type="checkbox" class="recording-checkbox w-4 h-4" data-id="${filename}"></td>
       <td class="p-2">
@@ -258,16 +274,18 @@ function createRecordingItem(recording) {
               ${statusIndicator}
             </div>
             <div class="flex items-center gap-2 flex-wrap">
-              ${speakerDisplay ? `<div class="flex items-center gap-1">${speakerDisplay}</div>` : ''}
+              ${speakerDisplay ? `<div class=\"flex items-center gap-1\">${speakerDisplay}</div>` : ''}
               ${categoryBadge}
             </div>
+            ${mobileDate}
+            ${mobileControls}
           </div>
         </div>
       </td>
-      <td class="p-2">
+      <td class="p-2 hidden md:table-cell">
         <audio class="audio-player" src="/recordings/${filename}"></audio>
       </td>
-      <td class="p-2 recording-date text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">${formattedDate}</td>
+      <td class="p-2 recording-date text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap hidden sm:table-cell">${formattedDate}</td>
       <td class="p-2 text-right">
         <div class="flex items-center justify-end gap-2">
           ${metadata.transcription ? `<button class="view-transcript-button bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm" title="View transcription">
@@ -288,6 +306,51 @@ function createRecordingItem(recording) {
       showTranscriptionModal(filename, metadata);
     }
   });
+  
+  // Mobile play/pause control
+  const audioEl = row.querySelector('audio');
+  const mobilePlayBtn = row.querySelector('.mobile-play');
+  const mobileDuration = row.querySelector('.mobile-duration');
+
+  if (audioEl) {
+    // Update duration label when known
+    const updateDuration = () => {
+      if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+        const mins = Math.floor(audioEl.duration / 60);
+        const secs = Math.floor(audioEl.duration % 60).toString().padStart(2, '0');
+        mobileDuration && (mobileDuration.textContent = `${mins}:${secs}`);
+      }
+    };
+    audioEl.addEventListener('loadedmetadata', updateDuration);
+    // Fallback attempt like desktop helper
+    if (!isFinite(audioEl.duration) || audioEl.duration < 0.1) {
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => setTimeout(() => audioEl.pause(), 10)).catch(() => {});
+      }
+    }
+  }
+
+  if (mobilePlayBtn && audioEl) {
+    mobilePlayBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Pause any other playing audio
+      document.querySelectorAll('audio').forEach(a => {
+        if (a !== audioEl && !a.paused) a.pause();
+      });
+      if (audioEl.paused) {
+        audioEl.play();
+        mobilePlayBtn.innerHTML = '<i class="fas fa-pause text-sm"></i>';
+      } else {
+        audioEl.pause();
+        mobilePlayBtn.innerHTML = '<i class="fas fa-play text-sm"></i>';
+      }
+    });
+    // Sync button when playback ends
+    audioEl && audioEl.addEventListener('ended', () => {
+      mobilePlayBtn.innerHTML = '<i class="fas fa-play text-sm"></i>';
+    });
+  }
   
   // Add handler for view transcript button
   const transcriptButton = row.querySelector('.view-transcript-button');
@@ -404,6 +467,7 @@ function setupEventListeners() {
     item.addEventListener("click", function (e) {
       if (e.target.type === "checkbox") return; // Don't toggle selection when clicking the checkbox
       if (e.target.closest('.plyr')) return; // Don't toggle selection when clicking the player
+      if (e.target.closest('.mobile-play')) return; // Don't toggle when clicking mobile play
       if (e.target.closest('.delete-button')) return; // Don't toggle selection when clicking delete
       if (e.target.closest('.view-transcript-button')) return; // Don't toggle when clicking transcript button
       if (e.target.classList.contains('recording-name')) return; // Don't toggle when clicking the name
