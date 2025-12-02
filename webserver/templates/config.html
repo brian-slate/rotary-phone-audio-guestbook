@@ -78,14 +78,24 @@
             </div>
 
             <div class="mb-2">
-              <label for="greeting_volume" class="block mb-1">Volume</label>
+              <label for="greeting_volume" class="block mb-1 flex items-center">
+                Volume
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Volume level from 0.0 (mute) to 1.0 (max). Typical values: 0.8-1.0">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
               <input type="number" step="0.1" id="greeting_volume" name="greeting_volume"
                 value="{{ config['greeting_volume'] }}"
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
             </div>
 
             <div class="mb-2">
-              <label for="greeting_start_delay" class="block mb-1">Start Delay (sec)</label>
+              <label for="greeting_start_delay" class="block mb-1 flex items-center">
+                Start Delay (sec)
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Silence before greeting plays after handset is picked up. Gives user time to put phone to ear.">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
               <input type="number" step="0.1" id="greeting_start_delay" name="greeting_start_delay"
                 value="{{ config['greeting_start_delay'] }}"
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
@@ -143,7 +153,12 @@
             </div>
 
             <div class="mb-2">
-              <label for="beep_include_in_message" class="block mb-1">Include in Recording</label>
+              <label for="beep_include_in_message" class="block mb-1 flex items-center">
+                Include in Recording
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="If Yes, beep will be recorded as part of the message. If No, recording starts after beep finishes.">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
               <div class="flex items-center space-x-4">
                 {% if config['beep_include_in_message'] %}
                 <label class="inline-flex items-center">
@@ -224,13 +239,90 @@
         </h2>
       </div>
       <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
-        {% for field in ['recording_limit', 'time_exceeded_length'] %}
         <div class="mb-2 lg:mb-4">
-          <label for="{{ field }}" class="block mb-1 lg:mb-2">{{ field|replace('_', ' ')|title }}</label>
-          <input type="number" id="{{ field }}" name="{{ field }}" value="{{ config[field] }}"
+          <label for="recording_limit" class="block mb-1 lg:mb-2 flex items-center">
+            Recording Limit
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Maximum duration (in seconds) for a single recording. Recording will stop automatically after this time.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="recording_limit" name="recording_limit" value="{{ config['recording_limit'] }}"
             class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
         </div>
-        {% endfor %}
+        
+        <div class="mb-2 lg:mb-4">
+          <label for="time_exceeded_length" class="block mb-1 lg:mb-2 flex items-center">
+            Time Exceeded Length
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Seconds before playing the 'time exceeded' message to warn caller they're running out of time.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="time_exceeded_length" name="time_exceeded_length" value="{{ config['time_exceeded_length'] }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+        
+        <!-- Recording Filtering Settings -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+          <h3 class="font-semibold mb-3 flex items-center">
+            Recording Filtering
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Automatically filters out junk recordings like accidental pick-ups or immediate hang-ups">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </h3>
+          
+          <div class="mb-2 lg:mb-4">
+            <label for="minimum_message_duration" class="block mb-1 lg:mb-2 flex items-center">
+              Minimum Message Duration (seconds)
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Recordings shorter than this will be deleted (2-3 seconds allows quick messages like 'Love you!')">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" step="0.1" id="minimum_message_duration" name="minimum_message_duration" value="{{ config.get('minimum_message_duration', 2.0) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+          
+          <div class="mb-2 lg:mb-4">
+            <label for="minimum_file_size_bytes" class="block mb-1 lg:mb-2 flex items-center">
+              Minimum File Size (bytes)
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Recordings smaller than this will be deleted (88200 bytes ≈ 1 second of audio)">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" id="minimum_file_size_bytes" name="minimum_file_size_bytes" value="{{ config.get('minimum_file_size_bytes', 88200) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+          
+          <div class="mb-2 lg:mb-4">
+            <label for="delete_invalid_recordings" class="block mb-1 lg:mb-2 flex items-center">
+              Delete Invalid Recordings
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="When enabled, recordings that don't meet the minimum requirements will be automatically deleted">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <div class="flex items-center space-x-4">
+              {% if config.get('delete_invalid_recordings', True) %}
+              <label class="inline-flex items-center">
+                <input type="radio" name="delete_invalid_recordings" value="true" checked class="mr-1" />
+                <span>Enabled</span>
+              </label>
+              <label class="inline-flex items-center">
+                <input type="radio" name="delete_invalid_recordings" value="false" class="mr-1" />
+                <span>Disabled</span>
+              </label>
+              {% else %}
+              <label class="inline-flex items-center">
+                <input type="radio" name="delete_invalid_recordings" value="true" class="mr-1" />
+                <span>Enabled</span>
+              </label>
+              <label class="inline-flex items-center">
+                <input type="radio" name="delete_invalid_recordings" value="false" checked class="mr-1" />
+                <span>Disabled</span>
+              </label>
+              {% endif %}
+            </div>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Disable to keep all recordings for debugging</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -286,7 +378,12 @@
 
     <!-- Hook Bounce Time -->
     <div class="mb-2 lg:mb-4">
-      <label for="hook_bounce_time" class="block mb-1 lg:mb-2">Hook Bounce Time</label>
+      <label for="hook_bounce_time" class="block mb-1 lg:mb-2 flex items-center">
+        Hook Bounce Time
+        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Seconds to wait after hook state change before accepting another change. Prevents accidental double-pickups (0.2 is typical).">
+          <i class="fas fa-info-circle"></i>
+        </span>
+      </label>
       <input type="text" id="hook_bounce_time" name="hook_bounce_time" value="{{ config['hook_bounce_time'] }}"
         class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
     </div>
@@ -310,6 +407,38 @@
       <label for="record_greeting_bounce_time" class="block mb-1 lg:mb-2">Record Greeting Bounce Time</label>
       <input type="text" id="record_greeting_bounce_time" name="record_greeting_bounce_time" value="{{ config['record_greeting_bounce_time'] }}"
         class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+    </div>
+
+    <!-- Hook Toggle Record Mode -->
+    <div class="mb-2 lg:mb-4">
+      <label for="hook_toggle_record_enabled" class="block mb-1 lg:mb-2 flex items-center">
+        Hook Toggle Record Mode
+        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="When enabled, rapidly picking up and hanging up the phone 20 times within 6 seconds will trigger greeting recording mode. LEDs will pulse blue, then you can record a new greeting directly on the phone.">
+          <i class="fas fa-info-circle"></i>
+        </span>
+      </label>
+      <div class="flex items-center space-x-4">
+        {% if config.get('hook_toggle_record_enabled', True) %}
+        <label class="inline-flex items-center">
+          <input type="radio" name="hook_toggle_record_enabled" value="true" checked class="mr-1" />
+          <span>Enabled</span>
+        </label>
+        <label class="inline-flex items-center">
+          <input type="radio" name="hook_toggle_record_enabled" value="false" class="mr-1" />
+          <span>Disabled</span>
+        </label>
+        {% else %}
+        <label class="inline-flex items-center">
+          <input type="radio" name="hook_toggle_record_enabled" value="true" class="mr-1" />
+          <span>Enabled</span>
+        </label>
+        <label class="inline-flex items-center">
+          <input type="radio" name="hook_toggle_record_enabled" value="false" checked class="mr-1" />
+          <span>Disabled</span>
+        </label>
+        {% endif %}
+      </div>
+      <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allows recording greetings by rapidly toggling the hook switch</span>
     </div>
   </div>
 </div>

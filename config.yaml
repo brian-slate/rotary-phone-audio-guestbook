@@ -17,6 +17,12 @@ record_greeting_type: NC # or 'NO' depending on your hardware configuration
 # Software bounce compensation this is the length of time (in seconds) that the component will ignore changes in state after an initial change.
 record_greeting_bounce_time: 0.1 # float or None
 
+# Hook toggle greeting recording (rapid hook on/off to trigger record greeting mode)
+hook_toggle_record_enabled: true # Enable/disable hook toggle recording feature
+hook_toggle_count: 20 # Number of hook toggles required to enter record greeting mode
+hook_toggle_window: 6.0 # Time window in seconds to detect toggles
+record_greeting_prompt: /home/admin/rotary-phone-audio-guestbook/sounds/record_greeting_prompt.wav
+
 # The beep sound is played when the user picks up the phone
 beep: /home/admin/rotary-phone-audio-guestbook/sounds/beep.wav
 beep_volume: 1.0
@@ -29,11 +35,16 @@ greeting_volume: 1.0
 greeting_start_delay: 1.5
 
 # The time_exceeded sound is played when the user has been recording for too long
-time_exceeded: /home/admin/rotary-phone-audio-guestbook/sounds/time_exceeded.wav
+time_exceeded: sounds/time_exceeded/new-time-exceeded.wav
 time_exceeded_volume: 1.0
 
 recordings_path: /home/admin/rotary-phone-audio-guestbook/recordings
 time_exceeded_length: 300
+
+# Recording validation settings (filter out junk/accidental recordings)
+minimum_message_duration: 2.0  # Minimum seconds of recording to keep (filters accidental hang-ups)
+minimum_file_size_bytes: 88200  # Minimum file size in bytes (~1 second of audio at 44.1kHz stereo)
+delete_invalid_recordings: true  # Whether to automatically delete invalid recordings
 
 shutdown_gpio: 0 #Set GPIO pin here --> Note: Pin is active LOW, pull Pin to GND to activate shutdown
 shutdown_button_hold_time: 2 # default 2 seconds

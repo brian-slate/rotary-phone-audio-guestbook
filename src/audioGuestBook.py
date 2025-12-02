@@ -32,6 +32,7 @@ class CurrentEvent(Enum):
     NONE = 0
     HOOK = 1
     RECORD_GREETING = 2
+    RECORD_GREETING_VIA_HOOK = 3
 
 
 class AudioGuestBook:
@@ -79,6 +80,9 @@ class AudioGuestBook:
             sample_rate=self.config["sample_rate"],
             channels=self.config["channels"],
             mixer_control_name=self.config["mixer_control_name"],
+            minimum_message_duration=self.config.get("minimum_message_duration", 2.0),
+            minimum_file_size_bytes=self.config.get("minimum_file_size_bytes", 88200),
+            delete_invalid_recordings=self.config.get("delete_invalid_recordings", True),
         )
 
         # Initialize LEDs
@@ -92,6 +96,12 @@ class AudioGuestBook:
         # LED animation control
         self.led_animation_running = False
         self.led_animation_thread = None
+        
+        # Hook toggle tracking for record greeting mode
+        self.hook_toggle_times = []
+        self.pending_greeting_record = False
+        self.greeting_recording_file = None
+        self.greeting_recording_started = False  # Track if recording actually started
 
     def load_config(self):
         """
@@ -189,11 +199,26 @@ class AudioGuestBook:
         self.led_animation_mode = "recording"  # all red
         logger.info("Switched LED animation to recording mode (all red)")
     
+    def led_start_record_greeting_animation(self):
+        """
+        Start the record greeting animation: pulsing blue LED.
+        Used while recording a new greeting via hook toggles.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = True
+        self.led_animation_mode = "record_greeting"  # blue pulse
+        self.led_animation_thread = threading.Thread(target=self._led_animation_loop, daemon=True)
+        self.led_animation_thread.start()
+        logger.info("Started LED record greeting animation (blue pulse)")
+    
     def _led_animation_loop(self):
         """
         Animation loop: randomly pulse LEDs at 80% max brightness like old-timey computer.
         Mode "greeting": amber/red tones
         Mode "recording": all red tones
+        Mode "record_greeting": pulsing blue (all LEDs synchronized)
         """
         if self.pixels is None:
             return
@@ -226,12 +251,35 @@ class AudioGuestBook:
         led_colors = [random.choice(greeting_colors) for _ in range(self.LED_COUNT)]
         current_mode = "greeting"
         
+        # For blue pulsing mode (synchronized)
+        blue_pulse_direction = 1  # 1 for increasing, -1 for decreasing
+        blue_pulse_value = 0
+        
         while self.led_animation_running:
             # Check if mode changed and update colors
             if hasattr(self, 'led_animation_mode') and self.led_animation_mode != current_mode:
                 current_mode = self.led_animation_mode
-                colors = recording_colors if current_mode == "recording" else greeting_colors
-                led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
+                if current_mode in ["greeting", "recording"]:
+                    colors = recording_colors if current_mode == "recording" else greeting_colors
+                    led_colors = [random.choice(colors) for _ in range(self.LED_COUNT)]
+            
+            # Handle blue pulsing mode (synchronized all LEDs)
+            if current_mode == "record_greeting":
+                # Smooth pulsing between 30-255
+                blue_pulse_value += blue_pulse_direction * 8
+                if blue_pulse_value >= 255:
+                    blue_pulse_value = 255
+                    blue_pulse_direction = -1
+                elif blue_pulse_value <= 30:
+                    blue_pulse_value = 30
+                    blue_pulse_direction = 1
+                
+                brightness_factor = (blue_pulse_value / 255) * 0.8
+                b = int(255 * brightness_factor)
+                self.pixels.fill((0, 0, b))
+                self.pixels.show()
+                time.sleep(0.03)
+                continue
             
             colors = recording_colors if current_mode == "recording" else greeting_colors
             
@@ -352,30 +400,79 @@ class AudioGuestBook:
     def _monitor_button(self):
         """
         Continuously monitors button state in a separate thread.
-        When button is pressed (GPIO goes LOW), calls off_hook().
-        When button is released (GPIO goes HIGH), calls on_hook().
+        Uses two separate mechanisms:
+        1. Immediate toggle counting for record mode detection (no debounce)
+        2. Debounced call flow for normal pickup/hangup (prevents accidental triggers)
         """
         POLL_INTERVAL = 0.01  # 10ms polling interval
         last_state = GPIO.input(self.hook_gpio)
+        last_debounced_state = last_state
+        last_state_change_time = time.time()
         
         while self.monitor_running:
             current_state = GPIO.input(self.hook_gpio)
+            current_time = time.time()
             
+            # Detect ANY state change for toggle counting
             if current_state != last_state:
+                # IMMEDIATE: Count toggles for record mode detection (no debounce)
+                toggle_window = self.config.get("hook_toggle_window", 6.0)
+                
+                # Clean up old toggle times outside the window
+                self.hook_toggle_times = [
+                    t for t in self.hook_toggle_times 
+                    if current_time - t < toggle_window
+                ]
+                
+                # Add current toggle (count both directions)
+                self.hook_toggle_times.append(current_time)
+                
+                toggle_count = len(self.hook_toggle_times)
+                required_count = self.config.get("hook_toggle_count", 10)
+                
+                logger.info(f"Hook toggle detected: {toggle_count}/{required_count} within {toggle_window}s window (state: {current_state})")
+                
+                # Check if record mode threshold reached AND feature is enabled
+                hook_toggle_enabled = self.config.get("hook_toggle_record_enabled", True)
+                if toggle_count >= required_count and hook_toggle_enabled:
+                    logger.info(f"Record greeting mode activated! ({toggle_count} toggles detected)")
+                    self.pending_greeting_record = True
+                    # Clear the toggle history
+                    self.hook_toggle_times = []
+                    
+                    # If currently in a call, end it cleanly
+                    if self.current_event != CurrentEvent.NONE:
+                        logger.info("Ending current call to prepare for record greeting mode")
+                        self.stop_recording_and_playback()
+                        self.led_stop_animation()
+                        self.current_event = CurrentEvent.NONE
+                
+                # Reset debounce timer
+                last_state_change_time = current_time
+                last_state = current_state
+            
+            # DEBOUNCED: Normal call flow (only after state settles)
+            time_since_change = current_time - last_state_change_time
+            debounce_time = self.config.get("hook_bounce_time", 0.2)
+            
+            # Only trigger call state changes after state has settled
+            if time_since_change >= debounce_time and current_state != last_debounced_state:
+                # State has settled, now act on it for normal call flow
                 if current_state == 0:  # Button pressed (LOW - connected to ground)
-                    logger.info("Button pressed detected")
+                    logger.info("Hook state settled: OFF HOOK (debounced)")
                     self.off_hook()
                 else:  # Button released (HIGH - pulled up)
-                    logger.info("Button released detected")
+                    logger.info("Hook state settled: ON HOOK (debounced)")
                     self.on_hook()
                 
-                last_state = current_state
+                last_debounced_state = current_state
             
             threading.Event().wait(POLL_INTERVAL)
 
     def off_hook(self):
         """
         Handles the off-hook event to start playback and recording.
+        If pending_greeting_record is True, starts record greeting mode instead.
         """
         # Check that no other event is currently in progress
         if self.current_event != CurrentEvent.NONE:
@@ -387,13 +484,27 @@ class AudioGuestBook:
         # Ensure clean state by forcing stop of any existing processes
         self.stop_recording_and_playback()
 
-        # Start LED greeting animation (amber/red mix)
-        self.led_start_greeting_animation()
+        # Check if we should enter record greeting mode
+        if self.pending_greeting_record:
+            logger.info("Entering RECORD GREETING MODE via hook toggles")
+            self.pending_greeting_record = False
+            
+            # Start blue pulsing LED animation
+            self.led_start_record_greeting_animation()
+            
+            self.current_event = CurrentEvent.RECORD_GREETING_VIA_HOOK
+            # Start the record greeting process in a separate thread
+            self.greeting_thread = threading.Thread(target=self.record_greeting_via_hook)
+            self.greeting_thread.start()
+        else:
+            # Normal call flow
+            # Start LED greeting animation (amber/red mix)
+            self.led_start_greeting_animation()
 
-        self.current_event = CurrentEvent.HOOK  # Ensure playback can continue
-        # Start the greeting playback in a separate thread
-        self.greeting_thread = threading.Thread(target=self.play_greeting_and_beep)
-        self.greeting_thread.start()
+            self.current_event = CurrentEvent.HOOK  # Ensure playback can continue
+            # Start the greeting playback in a separate thread
+            self.greeting_thread = threading.Thread(target=self.play_greeting_and_beep)
+            self.greeting_thread.start()
 
     def start_recording(self, output_file: str):
         """
@@ -459,6 +570,7 @@ class AudioGuestBook:
     def on_hook(self):
         """
         Handles the on-hook event to stop and save the recording.
+        If in record greeting mode, saves the greeting and updates config.
         """
         if self.current_event == CurrentEvent.HOOK:
             logger.info("Phone on hook. Ending call and saving recording.")
@@ -475,7 +587,38 @@ class AudioGuestBook:
             logger.info("=========================================")
             logger.info("System reset completed successfully")
             logger.info("Ready for next recording - lift handset to begin")
-            logger.info("=========================================")
+            logger.info("=========================================" )
+        
+        elif self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            logger.info("Phone on hook during greeting recording.")
+            # Stop recording
+            self.stop_recording_and_playback()
+            
+            # Stop LED animation
+            self.led_stop_animation()
+            
+            # Only save if recording actually started (user didn't hang up before beep)
+            if self.greeting_recording_started:
+                # If recording was successful, update config
+                if self.greeting_recording_file and Path(self.greeting_recording_file).exists():
+                    self._save_new_greeting(self.greeting_recording_file)
+                    logger.info("=========================================")
+                    logger.info("New greeting saved successfully")
+                    logger.info("Ready for next call - lift handset to begin")
+                    logger.info("=========================================" )
+                else:
+                    logger.warning("Greeting recording file not found, keeping old greeting")
+            else:
+                logger.info("Greeting recording cancelled (hung up before recording started)")
+                # Clean up the temp file if it exists
+                if self.greeting_recording_file and Path(self.greeting_recording_file).exists():
+                    Path(self.greeting_recording_file).unlink()
+                logger.info("Keeping existing greeting. Ready for next call.")
+            
+            # Reset state
+            self.greeting_recording_file = None
+            self.greeting_recording_started = False
+            self.current_event = CurrentEvent.NONE
 
     def time_exceeded(self):
         """
@@ -546,6 +689,97 @@ class AudioGuestBook:
         self.current_event = CurrentEvent.NONE  # Stop playback and reset current event
         self.stop_recording_and_playback()
 
+    def record_greeting_via_hook(self):
+        """
+        Handles recording a new greeting via hook toggles.
+        Plays prompt, beep, then records until user hangs up.
+        """
+        self.audio_interface.continue_playback = (
+            self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK
+        )
+        
+        # Play the record greeting prompt
+        if self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            logger.info("Playing record greeting prompt...")
+            self.audio_interface.play_audio(
+                self.config.get("record_greeting_prompt", self.config["beep"]),
+                self.config.get("greeting_volume", 1.0),
+                0.5,
+            )
+        
+        # Add a small delay BEFORE beep to let audio system settle
+        # This prevents cutting off the start of the recording
+        if self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            time.sleep(0.3)  # 300ms delay for audio system to settle
+        
+        # Play the beep (NOT included in recording)
+        if self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            logger.info("Playing beep before greeting recording...")
+            self.audio_interface.play_audio(
+                self.config["beep"],
+                self.config["beep_volume"],
+                0,
+            )
+        
+        # Switch LEDs to red for recording and start immediately after beep
+        if self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            self.led_animation_mode = "recording"  # Switch to red
+            logger.info("Switched LED animation to recording mode (all red)")
+        
+        # Start recording the new greeting to a temp file
+        if self.current_event == CurrentEvent.RECORD_GREETING_VIA_HOOK:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            greetings_dir = Path(self.config.get("recordings_path", "recordings")).parent / "sounds" / "greetings"
+            greetings_dir.mkdir(parents=True, exist_ok=True)
+            
+            self.greeting_recording_file = str(greetings_dir / f"greeting-{timestamp}.wav")
+            logger.info(f"Recording new greeting to: {self.greeting_recording_file}")
+            
+            # Mark that recording has started (so we know to save on hang-up)
+            self.greeting_recording_started = True
+            
+            # Start recording (no time limit for greeting)
+            self.audio_interface.start_recording(self.greeting_recording_file)
+            logger.info("Recording greeting... hang up when finished.")
+    
+    def _save_new_greeting(self, greeting_file):
+        """
+        Saves the newly recorded greeting and updates the config.
+        """
+        try:
+            # Get relative path from base directory
+            base_dir = Path(self.config.get("recordings_path", "recordings")).parent
+            greeting_path = Path(greeting_file)
+            
+            if greeting_path.is_absolute():
+                try:
+                    relative_path = greeting_path.relative_to(base_dir)
+                except ValueError:
+                    # If file is not relative to base_dir, use absolute path
+                    relative_path = greeting_path
+            else:
+                relative_path = greeting_path
+            
+            # Update in-memory config
+            self.config["greeting"] = str(relative_path.as_posix())
+            
+            # Save to config.yaml using standard yaml module
+            config_path = Path(self.config_path)
+            
+            with config_path.open("r") as f:
+                config_data = yaml.safe_load(f)
+            
+            config_data["greeting"] = str(relative_path.as_posix())
+            
+            with config_path.open("w") as f:
+                yaml.dump(config_data, f, default_flow_style=False)
+            
+            logger.info(f"Updated config with new greeting: {relative_path}")
+            logger.info("Greeting saved successfully. It will be used for the next call.")
+            
+        except Exception as e:
+            logger.error(f"Failed to update config with new greeting: {e}")
+    
     def beep_and_record_greeting(self):
         """
         Plays the beep and start recording a new greeting message #, checking for the button event.

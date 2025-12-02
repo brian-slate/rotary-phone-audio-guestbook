@@ -34,6 +34,9 @@ class AudioInterface:
         sample_rate=44100,
         channels=1,
         mixer_control_name="Speaker",
+        minimum_message_duration=2.0,
+        minimum_file_size_bytes=88200,
+        delete_invalid_recordings=True,
     ):
         """
         Initializes the audio interface with specified configuration.
@@ -45,6 +48,9 @@ class AudioInterface:
             recording_limit (int): Maximum duration for recording in seconds.
             sample_rate (int, optional): Sampling rate in Hz. Defaults to 44100.
             channels (int, optional): Number of audio channels. Defaults to 1.
+            minimum_message_duration (float, optional): Minimum recording duration to keep. Defaults to 2.0.
+            minimum_file_size_bytes (int, optional): Minimum file size to keep. Defaults to 88200.
+            delete_invalid_recordings (bool, optional): Whether to delete invalid recordings. Defaults to True.
         """
         self.alsa_hw_mapping = alsa_hw_mapping
         self.recording_limit = recording_limit
@@ -56,6 +62,12 @@ class AudioInterface:
         self.playback_process = None
         self.mixer_control_name = mixer_control_name
         self.continue_playback = True
+        
+        # Recording validation settings
+        self.minimum_message_duration = minimum_message_duration
+        self.minimum_file_size_bytes = minimum_file_size_bytes
+        self.delete_invalid_recordings = delete_invalid_recordings
+        self.recording_start_time = None
 
     def set_volume(self, volume_percentage):
         """
@@ -150,6 +162,9 @@ class AudioInterface:
         Args:
             output_file (str): Path to the output file where the audio will be saved.
         """
+        # Track recording start time for validation
+        self.recording_start_time = time.time()
+        
         # First, ensure no rogue processes are running
         try:
             subprocess.run(["pkill", "-f", "arecord"], check=False)
@@ -226,6 +241,8 @@ class AudioInterface:
                     try:
                         if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                             logger.info(f"Recording saved successfully: {output_file} ({os.path.getsize(output_file)} bytes)")
+                            # Validate and possibly delete the recording
+                            self._validate_and_cleanup_recording(output_file)
                         else:
                             logger.warning(f"Recording file not found or empty: {output_file}")
                     except OSError as e:
@@ -252,6 +269,8 @@ class AudioInterface:
                     try:
                         if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                             logger.info(f"Recording saved successfully after forced termination: {output_file} ({os.path.getsize(output_file)} bytes)")
+                            # Validate and possibly delete the recording
+                            self._validate_and_cleanup_recording(output_file)
                         else:
                             logger.warning(f"Recording file not found or empty after forced termination: {output_file}")
                     except OSError as e:
@@ -305,3 +324,47 @@ class AudioInterface:
                     logger.info("Found and terminated stray arecord processes")
             except Exception as e:
                 logger.error(f"Error during stray process cleanup: {e}")
+    
+    def _validate_and_cleanup_recording(self, output_file):
+        """
+        Validates a recording file and deletes it if invalid based on duration and file size.
+        
+        Args:
+            output_file (str): Path to the recording file to validate
+        """
+        if not self.delete_invalid_recordings:
+            logger.info("Recording validation disabled, keeping all files")
+            return
+        
+        is_valid = True
+        reasons = []
+        
+        # Check 1: File size
+        try:
+            file_size = os.path.getsize(output_file)
+            if file_size < self.minimum_file_size_bytes:
+                is_valid = False
+                reasons.append(f"file size too small ({file_size} bytes < {self.minimum_file_size_bytes} bytes)")
+        except OSError as e:
+            logger.error(f"Error checking file size: {e}")
+            return
+        
+        # Check 2: Recording duration
+        if self.recording_start_time is not None:
+            recording_duration = time.time() - self.recording_start_time
+            if recording_duration < self.minimum_message_duration:
+                is_valid = False
+                reasons.append(f"recording too short ({recording_duration:.2f}s < {self.minimum_message_duration:.2f}s)")
+        
+        # Delete if invalid
+        if not is_valid:
+            try:
+                os.remove(output_file)
+                logger.info(f"🗑️  Deleted invalid recording: {output_file} - Reasons: {', '.join(reasons)}")
+            except OSError as e:
+                logger.error(f"Error deleting invalid recording {output_file}: {e}")
+        else:
+            logger.info(f"✓ Recording validated successfully: {output_file} ({file_size} bytes, {recording_duration:.2f}s)")
+        
+        # Reset tracking
+        self.recording_start_time = None
