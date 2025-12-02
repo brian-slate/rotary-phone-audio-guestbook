@@ -74,29 +74,28 @@ sudo apt-get install ffmpeg
 
 ## Deployment Instructions
 
-1. **Check Raspberry Pi IP:**
-   - Find your Pi's IP address (should be shown on web interface or via `hostname -I`)
-
-2. **Sync Files to Pi:**
+1. **Sync Files to Pi:**
    ```bash
-   ./sync-to-pi.sh 192.168.x.x
+   ./sync-to-pi.sh camphone
+   # Or use camphone.local if DNS doesn't resolve
+   ./sync-to-pi.sh camphone.local
    ```
 
-3. **SSH into Pi and Install ffmpeg:**
+2. **SSH into Pi and Install ffmpeg:**
    ```bash
-   ssh admin@192.168.x.x
+   ssh admin@camphone
    sudo apt-get update
    sudo apt-get install ffmpeg
    ```
 
-4. **Restart Services:**
+3. **Restart Services:**
    ```bash
    sudo systemctl restart audioGuestBook.service
    sudo systemctl restart audioGuestBookWebServer.service
    ```
 
-5. **Test:**
-   - Navigate to `http://192.168.x.x:8080/config`
+4. **Test:**
+   - Navigate to `http://camphone:8080/config` or `http://camphone.local:8080/config`
    - You should see the new dropdown selectors and upload sections
    - Try uploading an M4A file from your iPhone
 
@@ -131,7 +130,7 @@ time_exceeded: sounds/time_exceeded/default.wav
 
 If issues occur:
 1. Checkout main branch: `git checkout main`
-2. Sync to Pi: `./sync-to-pi.sh 192.168.x.x`
+2. Sync to Pi: `./sync-to-pi.sh camphone`
 3. Restart services
 
 ## Known Limitations
