@@ -38,10 +38,15 @@ ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
     sudo apt-get update
     sudo apt-get install -y ffmpeg
     
-    # Install Python dependencies
+    # Install Python dependencies from requirements.txt
     echo "Installing Python dependencies..."
     cd ${RPI_PROJECT_DIR}
-    pip3 install openai requests --break-system-packages 2>/dev/null || pip3 install openai requests
+    if [ -f "requirements.txt" ]; then
+        pip3 install -r requirements.txt --break-system-packages 2>/dev/null || pip3 install -r requirements.txt
+    else
+        echo "Warning: requirements.txt not found, installing base packages..."
+        pip3 install openai requests --break-system-packages 2>/dev/null || pip3 install openai requests
+    fi
     
     # Copy service files to systemd directory
     echo "Copying service files to systemd directory..."

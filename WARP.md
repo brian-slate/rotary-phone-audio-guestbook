@@ -405,6 +405,32 @@ ssh admin@camphone "htop"
 vim config.yaml && ./deploy.sh camphone
 ```
 
+## Dependencies
+
+### System Packages (on Raspberry Pi)
+- `python3`, `python3-pip`
+- `alsa-utils` (arecord, aplay, amixer)
+- `ffmpeg` (for audio format conversion and compression)
+- `sox` (audio manipulation)
+- `python3-rpi.gpio` or `gpiozero`
+
+### Python Packages
+Managed via `pyproject.toml` and `requirements.txt`:
+- `flask` - Web framework
+- `gunicorn` - WSGI server
+- `gevent` - Async library
+- `gpiozero` - GPIO interface
+- `ruamel-yaml` - YAML parsing
+- `psutil` - System monitoring
+- `openai` - OpenAI API client (AI features)
+- `requests` - HTTP library (connectivity checking)
+
+Install with:
+```bash
+ssh admin@camphone
+pip3 install -r requirements.txt
+```
+
 ## External Documentation
 
 - `OPENAI_INTEGRATION_SUMMARY.md` - Complete AI integration guide
@@ -412,6 +438,7 @@ vim config.yaml && ./deploy.sh camphone
 - `OPENAI_IMPLEMENTATION_PLAN.md` - Original implementation spec
 - `README.md` - General project documentation
 - `docs/` - Hardware, software, and configuration guides
+- `CLAUDE.md` - Legacy AI assistant context (being replaced by WARP.md)
 
 ## Security Notes
 

@@ -11,4 +11,6 @@ dependencies = [
     "gunicorn>=23.0.0",
     "psutil>=5.9.4",
     "ruamel-yaml>=0.18.6",
+    "openai>=1.0.0",
+    "requests>=2.31.0",
 ]
