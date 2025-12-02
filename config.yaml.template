@@ -53,7 +53,7 @@ shutdown_button_hold_time: 2 # default 2 seconds
 openai_enabled: false                    # Master toggle for AI processing
 openai_auto_process: true                # Auto-process new recordings
 openai_api_key: ""                      # OpenAI API key (starts with sk-)
-openai_gpt_model: "gpt-4o-mini"       # Model for metadata extraction (Recommended: fast, no reasoning overhead)
+openai_gpt_model: "gpt-5-mini"       # Model for metadata extraction (gpt-5-mini with reasoning disabled, or gpt-4o-mini)
 openai_language: "en"                    # Language code (en, es, fr, etc., or "auto")
 openai_ignored_names: []                 # Names to exclude from speaker detection (e.g. bride/groom names)
 openai_categories: ["joyful", "heartfelt", "humorous", "nostalgic", "advice", "blessing", "toast", "gratitude", "apology", "other"]  # Available emotional categories for AI classification

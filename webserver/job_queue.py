@@ -68,29 +68,57 @@ class ProcessingQueue:
             })
     
     def _cleanup_orphaned_recordings(self):
-        """Delete recordings that were never queued for AI (orphaned files)."""
+        """Delete recordings that were never queued for AI or are too short (junk)."""
         try:
+            import wave
             recordings_path = Path(self.config['recordings_path'])
             if not recordings_path.exists():
                 return
             
+            min_duration = self.config.get('minimum_message_duration', 2.0)
             orphaned_count = 0
+            junk_count = 0
+            
             for file_path in recordings_path.iterdir():
                 if file_path.is_file() and file_path.suffix.lower() == ".wav":
                     filename = file_path.name
                     metadata = self.metadata_manager.get_metadata(filename)
                     
-                    # Delete if no metadata at all (never queued)
+                    should_delete = False
+                    reason = ""
+                    
+                    # Check 1: No metadata at all (never queued)
                     if not metadata or not metadata.get('ai_metadata'):
+                        should_delete = True
+                        reason = "never queued"
+                        orphaned_count += 1
+                    
+                    # Check 2: Too short (junk from hook toggle attempts)
+                    if not should_delete:
+                        try:
+                            with wave.open(str(file_path), 'rb') as wav:
+                                frames = wav.getnframes()
+                                rate = wav.getframerate()
+                                duration = frames / float(rate)
+                                if duration < min_duration:
+                                    should_delete = True
+                                    reason = f"too short ({duration:.1f}s < {min_duration}s)"
+                                    junk_count += 1
+                        except Exception as e:
+                            logger.debug(f"Could not read duration for {filename}: {e}")
+                    
+                    if should_delete:
                         try:
                             file_path.unlink()
-                            orphaned_count += 1
-                            logger.info(f"Deleted orphaned recording (never queued): {filename}")
+                            # Remove metadata if it exists
+                            if metadata:
+                                self.metadata_manager.remove_recording(filename)
+                            logger.info(f"Deleted junk recording ({reason}): {filename}")
                         except Exception as e:
-                            logger.error(f"Failed to delete orphaned file {filename}: {e}")
+                            logger.error(f"Failed to delete {filename}: {e}")
             
-            if orphaned_count > 0:
-                logger.info(f"Cleaned up {orphaned_count} orphaned recording(s)")
+            if orphaned_count > 0 or junk_count > 0:
+                logger.info(f"Cleaned up {orphaned_count} orphaned + {junk_count} short recordings")
         except Exception as e:
             logger.error(f"Error cleaning up orphaned recordings: {e}")
     

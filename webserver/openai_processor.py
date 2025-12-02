@@ -202,21 +202,35 @@ Respond ONLY with valid JSON in this exact format:
   "confidence": 0.95
 }}"""
         
-        response = self.client.chat.completions.create(
-            model=self.gpt_model,
-            messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=800,  # Increased for safety (gpt-4o-mini is efficient)
-            response_format={"type": "json_object"}
-        )
+        # GPT-5 models use a different API (responses endpoint with reasoning control)
+        if "gpt-5" in self.gpt_model.lower():
+            logger.info(f"Using {self.gpt_model} with reasoning.effort=none (no reasoning)")
+            response = self.client.responses.create(
+                model=self.gpt_model,
+                input=prompt,
+                reasoning={"effort": "none"},  # Disable reasoning completely
+                text={"format": "json"},
+                max_output_tokens=800
+            )
+            # Extract content from responses API format
+            content = response.output[0].content if response.output else None
+        else:
+            # GPT-4 and older models use chat completions API
+            response = self.client.chat.completions.create(
+                model=self.gpt_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_completion_tokens=800,
+                response_format={"type": "json_object"}
+            )
+            # Extract content from chat completions API format
+            finish_reason = response.choices[0].finish_reason
+            if finish_reason == "length":
+                logger.error(f"GPT response hit token limit (max_completion_tokens=800)")
+                logger.error(f"Model: {self.gpt_model}, Tokens used: {response.usage}")
+                raise ValueError("GPT response exceeded token limit - message may be too long")
+            content = response.choices[0].message.content
         
-        # Check if response was cut off due to token limit
-        finish_reason = response.choices[0].finish_reason
-        if finish_reason == "length":
-            logger.error(f"GPT response hit token limit (max_completion_tokens=600)")
-            logger.error(f"Model: {self.gpt_model}, Tokens used: {response.usage}")
-            raise ValueError("GPT response exceeded token limit - message may be too long")
-        
-        content = response.choices[0].message.content
+        # Content already extracted above based on API type
         if not content or content.strip() == "":
             logger.error(f"Empty response from GPT model {self.gpt_model}")
             logger.error(f"Finish reason: {finish_reason}, Full response: {response}")
