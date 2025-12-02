@@ -219,6 +219,10 @@ function createRecordingItem(recording) {
   
   // Function to generate consistent color for unknown categories
   const getCategoryStyle = (categoryName) => {
+    // Handle null/undefined categories
+    if (!categoryName) {
+      return categoryConfig['other'];
+    }
     if (categoryConfig[categoryName]) {
       return categoryConfig[categoryName];
     }
