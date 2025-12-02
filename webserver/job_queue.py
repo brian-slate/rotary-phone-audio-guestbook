@@ -193,6 +193,14 @@ class ProcessingQueue:
                     self.queue.put((audio_file_path, filename))
                     continue
                 
+                # Check current status - skip if already completed
+                current_meta = self.metadata_manager.get_metadata(filename)
+                if current_meta:
+                    status = current_meta.get('ai_metadata', {}).get('processing_status')
+                    if status == 'completed':
+                        logger.info(f"Skipping {filename} - already completed")
+                        continue
+                
                 # Check if OpenAI is enabled
                 if not self.config.get('openai_enabled', False):
                     logger.info("OpenAI processing disabled, marking as skipped")
