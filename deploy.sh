@@ -95,22 +95,7 @@ ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
     fi
     
     # Merge config.yaml to preserve user settings while adding new defaults
-    echo "Merging config.yaml (preserving your settings)..."
-    if [ -f "${RPI_PROJECT_DIR}/config.yaml.template" ] && [ -f "${RPI_PROJECT_DIR}/config.yaml" ]; then
-        python3 ${RPI_PROJECT_DIR}/scripts/merge_config.py \
-            ${RPI_PROJECT_DIR}/config.yaml.template \
-            ${RPI_PROJECT_DIR}/config.yaml \
-            ${RPI_PROJECT_DIR}/config.yaml.merged
-        
-        if [ $? -eq 0 ]; then
-            mv ${RPI_PROJECT_DIR}/config.yaml.merged ${RPI_PROJECT_DIR}/config.yaml
-            echo "Config merge completed successfully"
-        else
-            echo "Warning: Config merge failed, keeping existing config"
-        fi
-    else
-        echo "No config template found, skipping merge"
-    fi
+    bash ${RPI_PROJECT_DIR}/scripts/merge_config_remote.sh ${RPI_PROJECT_DIR}
     
     # Copy service files to systemd directory
     echo "Copying service files to systemd directory..."
