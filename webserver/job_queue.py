@@ -132,15 +132,22 @@ class ProcessingQueue:
     def _worker(self):
         """Background worker - processes queue only when phone is idle."""
         last_scan_time = 0
-        scan_interval = 30  # Check for pending recordings every 30 seconds
+        has_pending = False  # Track if we found pending recordings last scan
         
         while self.running:
             task_retrieved = False
             try:
+                # Dynamically adjust scan interval based on whether we have pending work
+                # Scan every 3s when pending, every 30s when idle
+                scan_interval = 3 if has_pending else 30
+                
                 # Periodically scan for pending recordings that aren't in queue
                 current_time = time.time()
                 if current_time - last_scan_time > scan_interval:
-                    self._scan_and_enqueue_pending()
+                    unprocessed = self.metadata_manager.get_unprocessed_recordings()
+                    has_pending = len(unprocessed) > 0
+                    if has_pending:
+                        self._scan_and_enqueue_pending()
                     last_scan_time = current_time
                 
                 # Non-blocking get with timeout

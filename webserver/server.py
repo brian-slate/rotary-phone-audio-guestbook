@@ -347,10 +347,10 @@ def process_pending_recordings():
         unprocessed = metadata_mgr.get_unprocessed_recordings()
         total_count = len(unprocessed)
         
-        # No restart needed - queue scans for pending recordings every 30 seconds
+        # No restart needed - queue scans for pending recordings every 3 seconds
         message = f'Reset {reset_count} recording(s) to pending. '
         if total_count > 0:
-            message += f'{total_count} recording(s) will be processed when phone is idle (scans every 30s).'
+            message += f'{total_count} recording(s) will be processed when phone is idle (within a few seconds).'
         else:
             message += 'No recordings to process.'
         
