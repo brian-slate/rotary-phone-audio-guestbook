@@ -379,6 +379,7 @@ When assisting with this project:
 6. **OpenAI costs money**: Be aware when enabling/testing AI features
 7. **Configuration is critical**: Most issues are config-related
 8. **Compression is essential**: Without it, Pi Zero W bandwidth struggles
+9. **Do not commit or push changes unless explicitly requested by the user.**
 
 ### Quick Commands Reference
 

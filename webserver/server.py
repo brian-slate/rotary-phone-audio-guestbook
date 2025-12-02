@@ -1,3 +1,63 @@
+def update_config(form_data, skip_fields=None):
+    """Update the YAML configuration with form data."""
+    if skip_fields is None:
+        skip_fields = []
+
+    # Fields that should always be parsed as CSV → list, even if missing in config
+    list_fields = {"openai_ignored_names", "openai_categories"}
+    
+    for key, value in form_data.items():
+        # Skip CSRF token if it exists
+        if key == 'csrf_token':
+            continue
+        
+        # Skip fields that had file uploads (already updated)
+        if key in skip_fields:
+            logger.info(f"Skipping '{key}' - file was uploaded")
+            continue
+
+        # Allow list_fields even if not present; otherwise ensure key exists
+        if key not in config and key not in list_fields and key != 'invert_hook':
+            logger.warning(f"Form field '{key}' not found in config, skipping")
+            continue
+
+        # Log the conversion attempt
+        logger.info(f"Updating '{key}': {config.get(key, 'Not set')} (type: {type(config.get(key, '')).__name__}) → '{value}'")
+
+        try:
+            # Force-parse known CSV list fields regardless of current type
+            if key in list_fields:
+                # Support commas or newlines
+                parts = re.split(r"[,\n]", value or "")
+                new_list = [item.strip() for item in parts if item and item.strip()]
+                config[key] = new_list
+                logger.info(f"Parsed CSV to list for {key}: {new_list}")
+            # Convert value based on the type in config or for new boolean fields
+            elif key == 'invert_hook' or isinstance(config.get(key), bool):
+                # Convert string to boolean
+                new_value = (value.lower() == "true")
+                logger.info(f"Converting to boolean: {value} → {new_value}")
+                config[key] = new_value
+            elif isinstance(config.get(key), int):
+                config[key] = int(value)
+            elif isinstance(config.get(key), float):
+                config[key] = float(value)
+            elif isinstance(config.get(key), list):
+                # Generic list fields (fallback): comma-separated strings
+                if value and value.strip():
+                    config[key] = [item.strip() for item in value.split(',') if item.strip()]
+                    logger.info(f"Converting to list: {value} → {config[key]}")
+                else:
+                    config[key] = []
+            else:
+                config[key] = value
+
+            # Verify the conversion worked
+            logger.info(f"Updated '{key}' to: {config[key]} (type: {type(config[key]).__name__})")
+
+        except (ValueError, TypeError) as e:
+            logger.error(f"Failed to update '{key}': {e}")
+
 import io
 import logging
 import os
@@ -72,7 +132,7 @@ def inject_template_variables():
     # Makes variables available to all templates
     return {
         "ai_processing_error": _read_last_openai_error(),
-        "version": "3.0.0"  # Major release: AI transcription & metadata extraction, LED indicators, modern UI
+        "version": "3.1.0"  # Minor: config fixes, mobile UI, bugfixes
     }
 
 # Define other important paths
@@ -437,6 +497,13 @@ def edit_config():
         logger.error(f"Configuration file not found: {e}")
         current_config = {}
 
+    # Normalize list fields that might have been stored as strings
+    for lf in ("openai_ignored_names", "openai_categories"):
+        val = current_config.get(lf)
+        if isinstance(val, str):
+            parts = re.split(r"[,\n]", val)
+            current_config[lf] = [p.strip() for p in parts if p and p.strip()]
+
     # Get available audio files for each type
     available_greetings = get_audio_files("greetings")
     available_beeps = get_audio_files("beeps")
@@ -751,58 +818,6 @@ def shutdown():
         return jsonify(
             {"success": False, "message": "Failed to shut down the system!"}
         ), 500
-
-
-def update_config(form_data, skip_fields=None):
-    """Update the YAML configuration with form data."""
-    if skip_fields is None:
-        skip_fields = []
-    
-    for key, value in form_data.items():
-        # Skip CSRF token if it exists
-        if key == 'csrf_token':
-            continue
-        
-        # Skip fields that had file uploads (already updated)
-        if key in skip_fields:
-            logger.info(f"Skipping '{key}' - file was uploaded")
-            continue
-
-        # Check if key exists in config
-        if key not in config and key != 'invert_hook':
-            logger.warning(f"Form field '{key}' not found in config, skipping")
-            continue
-
-        # Log the conversion attempt
-        logger.info(f"Updating '{key}': {config.get(key, 'Not set')} (type: {type(config.get(key, '')).__name__}) → '{value}'")
-
-        try:
-            # Convert value based on the type in config or for new boolean fields
-            if key == 'invert_hook' or isinstance(config.get(key), bool):
-                # Convert string to boolean
-                new_value = (value.lower() == "true")
-                logger.info(f"Converting to boolean: {value} → {new_value}")
-                config[key] = new_value
-            elif isinstance(config.get(key), int):
-                config[key] = int(value)
-            elif isinstance(config.get(key), float):
-                config[key] = float(value)
-            elif isinstance(config.get(key), list):
-                # Handle list fields (comma-separated strings)
-                if value and value.strip():
-                    # Split by comma, strip whitespace, filter empty strings
-                    config[key] = [item.strip() for item in value.split(',') if item.strip()]
-                    logger.info(f"Converting to list: {value} → {config[key]}")
-                else:
-                    config[key] = []
-            else:
-                config[key] = value
-
-            # Verify the conversion worked
-            logger.info(f"Updated '{key}' to: {config[key]} (type: {type(config[key]).__name__})")
-
-        except (ValueError, TypeError) as e:
-            logger.error(f"Failed to update '{key}': {e}")
 
 @app.route("/api/system-status")
 def system_status():
