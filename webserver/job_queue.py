@@ -131,9 +131,18 @@ class ProcessingQueue:
     
     def _worker(self):
         """Background worker - processes queue only when phone is idle."""
+        last_scan_time = 0
+        scan_interval = 30  # Check for pending recordings every 30 seconds
+        
         while self.running:
             task_retrieved = False
             try:
+                # Periodically scan for pending recordings that aren't in queue
+                current_time = time.time()
+                if current_time - last_scan_time > scan_interval:
+                    self._scan_and_enqueue_pending()
+                    last_scan_time = current_time
+                
                 # Non-blocking get with timeout
                 try:
                     audio_file_path, filename = self.queue.get(timeout=1.0)

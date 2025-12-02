@@ -347,41 +347,19 @@ def process_pending_recordings():
         unprocessed = metadata_mgr.get_unprocessed_recordings()
         total_count = len(unprocessed)
         
-        # Restart the audioGuestBook service to pick up the changes
-        # This will re-initialize the processing queue with the updated metadata
-        try:
-            logger.info("Restarting audioGuestBook service to trigger processing...")
-            subprocess.run(
-                ['sudo', 'systemctl', 'restart', 'audioGuestBook.service'],
-                check=True,
-                capture_output=True,
-                timeout=10
-            )
-            
-            message = f'Reset {reset_count} recording(s) to pending. Total {total_count} recording(s) queued for processing.'
-            if total_count > 0:
-                message += ' Processing will start when phone is idle.'
-            
-            return jsonify({
-                'success': True,
-                'message': message,
-                'reset_count': reset_count,
-                'total_count': total_count
-            })
-        except subprocess.TimeoutExpired:
-            logger.warning("Service restart timed out but may still succeed")
-            return jsonify({
-                'success': True,
-                'message': f'Reset {reset_count} recording(s). Service restart initiated.',
-                'reset_count': reset_count,
-                'total_count': total_count
-            })
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to restart service: {e.stderr}")
-            return jsonify({
-                'success': False,
-                'message': f'Reset {reset_count} recordings but failed to restart service. Try manually: sudo systemctl restart audioGuestBook.service'
-            }), 500
+        # No restart needed - queue scans for pending recordings every 30 seconds
+        message = f'Reset {reset_count} recording(s) to pending. '
+        if total_count > 0:
+            message += f'{total_count} recording(s) will be processed when phone is idle (scans every 30s).'
+        else:
+            message += 'No recordings to process.'
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'reset_count': reset_count,
+            'total_count': total_count
+        })
             
     except Exception as e:
         logger.error(f"Error processing pending recordings: {e}")
