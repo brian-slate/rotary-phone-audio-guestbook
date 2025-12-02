@@ -319,19 +319,70 @@ def process_pending_recordings():
     """Manually trigger processing of all unprocessed recordings."""
     try:
         from metadata_manager import MetadataManager
+        import subprocess
         
         metadata_mgr = MetadataManager(recordings_path)
+        
+        # Reset failed and processing recordings to pending
+        reset_count = 0
+        data = metadata_mgr._read_metadata()
+        for filename, rec in data['recordings'].items():
+            ai_meta = rec.get('ai_metadata', {})
+            status = ai_meta.get('processing_status')
+            
+            # Reset failed or stuck processing recordings
+            if status in ['failed', 'processing']:
+                data['recordings'][filename]['ai_metadata'] = {
+                    'processing_status': 'pending'
+                }
+                reset_count += 1
+                logger.info(f"Reset {filename} from {status} to pending")
+        
+        # Write updated metadata
+        if reset_count > 0:
+            metadata_mgr._write_metadata(data)
+            logger.info(f"Reset {reset_count} recordings to pending status")
+        
+        # Get all unprocessed (including newly reset ones)
         unprocessed = metadata_mgr.get_unprocessed_recordings()
+        total_count = len(unprocessed)
         
-        # Note: This assumes the processing queue is accessible
-        # For now, just return success - actual processing will be handled by the queue
-        count = len(unprocessed)
-        
-        return jsonify({
-            'success': True,
-            'message': f'Found {count} recording(s) pending processing. They will be processed when the phone is idle.',
-            'count': count
-        })
+        # Restart the audioGuestBook service to pick up the changes
+        # This will re-initialize the processing queue with the updated metadata
+        try:
+            logger.info("Restarting audioGuestBook service to trigger processing...")
+            subprocess.run(
+                ['sudo', 'systemctl', 'restart', 'audioGuestBook.service'],
+                check=True,
+                capture_output=True,
+                timeout=10
+            )
+            
+            message = f'Reset {reset_count} recording(s) to pending. Total {total_count} recording(s) queued for processing.'
+            if total_count > 0:
+                message += ' Processing will start when phone is idle.'
+            
+            return jsonify({
+                'success': True,
+                'message': message,
+                'reset_count': reset_count,
+                'total_count': total_count
+            })
+        except subprocess.TimeoutExpired:
+            logger.warning("Service restart timed out but may still succeed")
+            return jsonify({
+                'success': True,
+                'message': f'Reset {reset_count} recording(s). Service restart initiated.',
+                'reset_count': reset_count,
+                'total_count': total_count
+            })
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to restart service: {e.stderr}")
+            return jsonify({
+                'success': False,
+                'message': f'Reset {reset_count} recordings but failed to restart service. Try manually: sudo systemctl restart audioGuestBook.service'
+            }), 500
+            
     except Exception as e:
         logger.error(f"Error processing pending recordings: {e}")
         return jsonify({
