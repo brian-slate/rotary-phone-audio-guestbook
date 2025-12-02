@@ -22,6 +22,28 @@ rsync -avz --exclude-from='./rsync-exclude.txt' \
 
 if [ $? -eq 0 ]; then
     echo "=== Sync completed successfully ==="
+    
+    # Merge config.yaml to preserve user settings while adding new defaults
+    echo "Merging config.yaml (preserving your settings)..."
+    ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
+        cd ${RPI_PROJECT_DIR}
+        if [ -f "config.yaml.template" ] && [ -f "config.yaml" ]; then
+            python3 scripts/merge_config.py \
+                config.yaml.template \
+                config.yaml \
+                config.yaml.merged
+            
+            if [ \$? -eq 0 ]; then
+                mv config.yaml.merged config.yaml
+                echo "Config merge completed successfully"
+            else
+                echo "Warning: Config merge failed, keeping existing config"
+            fi
+        else
+            echo "No config template found, skipping merge"
+        fi
+ENDSSH
+    
     echo ""
     echo "Next steps:"
     echo "1. SSH into the Pi: ssh ${RPI_USER}@${RPI_HOST}"
