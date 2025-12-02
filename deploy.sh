@@ -33,6 +33,16 @@ rsync -avz --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI
 # Step 2: SSH into the Raspberry Pi to execute commands there
 echo "Connecting to Raspberry Pi to complete deployment..."
 ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
+    # Install required system packages
+    echo "Installing system dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y ffmpeg
+    
+    # Install Python dependencies
+    echo "Installing Python dependencies..."
+    cd ${RPI_PROJECT_DIR}
+    pip3 install openai requests --break-system-packages 2>/dev/null || pip3 install openai requests
+    
     # Copy service files to systemd directory
     echo "Copying service files to systemd directory..."
     sudo cp ${RPI_PROJECT_DIR}/*.service ${RPI_SYSTEMD_DIR}/
