@@ -798,11 +798,11 @@ class AudioGuestBook:
             self.greeting_recording_file = str(greetings_dir / f"greeting-{timestamp}.wav")
             logger.info(f"Recording new greeting to: {self.greeting_recording_file}")
             
-            # Mark that recording has started (so we know to save on hang-up)
-            self.greeting_recording_started = True
-            
             # Start recording (no time limit for greeting)
             self.audio_interface.start_recording(self.greeting_recording_file)
+            
+            # Mark that recording has started AFTER it actually begins (so we know to save on hang-up)
+            self.greeting_recording_started = True
             logger.info("Recording greeting... hang up when finished.")
     
     def _save_new_greeting(self, greeting_file):
