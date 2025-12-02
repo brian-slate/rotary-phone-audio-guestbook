@@ -719,6 +719,12 @@ class AudioGuestBook:
             # Stop any ongoing processes before resetting the state
             self.stop_recording_and_playback()
             
+            # Stop LED animation and return to ready state
+            self.led_stop_animation()
+            
+            # Reset current_event BEFORE queuing AI so callback sees phone as idle
+            self.current_event = CurrentEvent.NONE
+            
             # Queue for AI processing if we have a recording path
             if AI_AVAILABLE and hasattr(self, 'current_recording_path') and hasattr(self, 'processing_queue'):
                 file_path = Path(self.current_recording_path)
@@ -736,12 +742,6 @@ class AudioGuestBook:
                         file_path.name
                     )
                     logger.info(f"Queued {file_path.name} for AI processing")
-
-            # Stop LED animation and return to ready state
-            self.led_stop_animation()
-
-            # Reset everything to initial state
-            self.current_event = CurrentEvent.NONE
 
             # Make sure we're ready for the next call with more verbose logging
             logger.info("=========================================")

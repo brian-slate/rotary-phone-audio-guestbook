@@ -205,7 +205,7 @@ Respond ONLY with valid JSON in this exact format:
         response = self.client.chat.completions.create(
             model=self.gpt_model,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=600,  # Enough for long transcripts (5 min messages)
+            max_completion_tokens=800,  # Increased for safety (gpt-4o-mini is efficient)
             response_format={"type": "json_object"}
         )
         

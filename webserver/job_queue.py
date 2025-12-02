@@ -41,6 +41,8 @@ class ProcessingQueue:
             logger.info("AI processing queue started")
             # Clear any stale error on startup
             self.clear_last_error()
+            # Clean up orphaned recordings (files never queued for AI)
+            self._cleanup_orphaned_recordings()
             # Scan for any pending recordings and enqueue them
             self._scan_and_enqueue_pending()
     
@@ -64,6 +66,33 @@ class ProcessingQueue:
             self.metadata_manager.update_metadata(filename, {
                 'ai_metadata': {'processing_status': 'skipped'}
             })
+    
+    def _cleanup_orphaned_recordings(self):
+        """Delete recordings that were never queued for AI (orphaned files)."""
+        try:
+            recordings_path = Path(self.config['recordings_path'])
+            if not recordings_path.exists():
+                return
+            
+            orphaned_count = 0
+            for file_path in recordings_path.iterdir():
+                if file_path.is_file() and file_path.suffix.lower() == ".wav":
+                    filename = file_path.name
+                    metadata = self.metadata_manager.get_metadata(filename)
+                    
+                    # Delete if no metadata at all (never queued)
+                    if not metadata or not metadata.get('ai_metadata'):
+                        try:
+                            file_path.unlink()
+                            orphaned_count += 1
+                            logger.info(f"Deleted orphaned recording (never queued): {filename}")
+                        except Exception as e:
+                            logger.error(f"Failed to delete orphaned file {filename}: {e}")
+            
+            if orphaned_count > 0:
+                logger.info(f"Cleaned up {orphaned_count} orphaned recording(s)")
+        except Exception as e:
+            logger.error(f"Error cleaning up orphaned recordings: {e}")
     
     def _scan_and_enqueue_pending(self):
         """Scan metadata for pending recordings and enqueue them."""
