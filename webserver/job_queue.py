@@ -60,10 +60,12 @@ class ProcessingQueue:
     def _worker(self):
         """Background worker - processes queue only when phone is idle."""
         while self.running:
+            task_retrieved = False
             try:
                 # Non-blocking get with timeout
                 try:
                     audio_file_path, filename = self.queue.get(timeout=1.0)
+                    task_retrieved = True
                 except queue.Empty:
                     continue
                 
@@ -134,4 +136,6 @@ class ProcessingQueue:
                 self.metadata_manager.mark_as_failed(filename, str(e))
             
             finally:
-                self.queue.task_done()
+                # Only call task_done if we actually got a task from the queue
+                if task_retrieved:
+                    self.queue.task_done()
