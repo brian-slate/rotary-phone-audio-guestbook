@@ -41,6 +41,8 @@ class ProcessingQueue:
             logger.info("AI processing queue started")
             # Clear any stale error on startup
             self.clear_last_error()
+            # Scan for any pending recordings and enqueue them
+            self._scan_and_enqueue_pending()
     
     def stop(self):
         """Stop background worker."""
@@ -62,6 +64,26 @@ class ProcessingQueue:
             self.metadata_manager.update_metadata(filename, {
                 'ai_metadata': {'processing_status': 'skipped'}
             })
+    
+    def _scan_and_enqueue_pending(self):
+        """Scan metadata for pending recordings and enqueue them."""
+        try:
+            unprocessed = self.metadata_manager.get_unprocessed_recordings()
+            if unprocessed:
+                logger.info(f"Found {len(unprocessed)} pending recording(s) to process")
+                for rec in unprocessed:
+                    filename = rec['filename']
+                    recordings_path = Path(self.config['recordings_path'])
+                    file_path = recordings_path / filename
+                    if file_path.exists():
+                        self.queue.put((str(file_path), filename))
+                        logger.info(f"Enqueued pending recording: {filename}")
+                    else:
+                        logger.warning(f"Pending recording not found: {filename}")
+            else:
+                logger.info("No pending recordings found")
+        except Exception as e:
+            logger.error(f"Error scanning for pending recordings: {e}")
         
     # -------- Error tracking helpers --------
     def _error_file_path(self) -> Path:
