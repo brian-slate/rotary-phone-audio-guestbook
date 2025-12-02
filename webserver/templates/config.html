@@ -47,18 +47,34 @@
             </h3>
 
             <div class="mb-2">
-              <label for="greeting_file" class="block mb-1">Greeting File</label>
-              <div
-                class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center hover:border-accent dark:hover:border-accent transition-colors duration-200">
-                <input type="file" id="greeting_file" name="greeting_file"
-                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                <div class="flex flex-col items-center">
-                  <i class="fas fa-cloud-upload-alt text-xl mb-1 text-gray-400 dark:text-gray-500"></i>
-                  <span class="text-sm text-gray-500 dark:text-gray-400">Upload file</span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate w-full">{{ config['greeting']
-                    }}</span>
-                </div>
+              <label for="greeting_select" class="block mb-1">Active Greeting</label>
+              <select id="greeting_select" name="greeting" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
+                {% for file in available_greetings %}
+                  {% set file_path = 'sounds/greetings/' + file %}
+                  <option value="{{ file_path }}" {% if config['greeting'] and file_path in config['greeting'] %}selected{% endif %}>{{ file }}</option>
+                {% endfor %}
+              </select>
+              
+              <div class="flex gap-2">
+                <button type="button" onclick="previewAudio('greeting')" 
+                  class="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-play mr-1"></i> Preview
+                </button>
+                <button type="button" onclick="deleteAudio('greeting')" 
+                  class="flex-1 bg-red-500 hover:bg-red-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-trash mr-1"></i> Delete
+                </button>
               </div>
+            </div>
+
+            <div class="mb-2 mt-4">
+              <label for="greeting_file" class="block mb-1">Upload New Greeting</label>
+              <input type="file" id="greeting_file" name="greeting_file" accept="audio/wav,audio/x-wav,audio/m4a,audio/x-m4a,audio/mp4,audio/aac,audio/aacp,audio/mpeg,audio/mp3,.wav,.m4a,.aac,.mp3"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2" />
+              <input type="text" id="greeting_name" name="greeting_name" placeholder="Name (optional)"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+              <span class="text-xs text-gray-500 dark:text-gray-400">Accepts: WAV, M4A, AAC, MP3</span>
             </div>
 
             <div class="mb-2">
@@ -83,18 +99,34 @@
             </h3>
 
             <div class="mb-2">
-              <label for="beep_file" class="block mb-1">Beep File</label>
-              <div
-                class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center hover:border-accent dark:hover:border-accent transition-colors duration-200">
-                <input type="file" id="beep_file" name="beep_file"
-                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                <div class="flex flex-col items-center">
-                  <i class="fas fa-cloud-upload-alt text-xl mb-1 text-gray-400 dark:text-gray-500"></i>
-                  <span class="text-sm text-gray-500 dark:text-gray-400">Upload file</span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate w-full">{{ config['beep']
-                    }}</span>
-                </div>
+              <label for="beep_select" class="block mb-1">Active Beep</label>
+              <select id="beep_select" name="beep" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
+                {% for file in available_beeps %}
+                  {% set file_path = 'sounds/beeps/' + file %}
+                  <option value="{{ file_path }}" {% if config['beep'] and file_path in config['beep'] %}selected{% endif %}>{{ file }}</option>
+                {% endfor %}
+              </select>
+              
+              <div class="flex gap-2">
+                <button type="button" onclick="previewAudio('beep')" 
+                  class="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-play mr-1"></i> Preview
+                </button>
+                <button type="button" onclick="deleteAudio('beep')" 
+                  class="flex-1 bg-red-500 hover:bg-red-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-trash mr-1"></i> Delete
+                </button>
               </div>
+            </div>
+
+            <div class="mb-2 mt-4">
+              <label for="beep_file" class="block mb-1">Upload New Beep</label>
+              <input type="file" id="beep_file" name="beep_file" accept="audio/wav,audio/x-wav,audio/m4a,audio/x-m4a,audio/mp4,audio/aac,audio/aacp,audio/mpeg,audio/mp3,.wav,.m4a,.aac,.mp3"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2" />
+              <input type="text" id="beep_name" name="beep_name" placeholder="Name (optional)"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+              <span class="text-xs text-gray-500 dark:text-gray-400">Accepts: WAV, M4A, AAC, MP3</span>
             </div>
 
             <div class="mb-2">
@@ -143,18 +175,34 @@
             </h3>
 
             <div class="mb-2">
-              <label for="time_exceeded_file" class="block mb-1">Time Exceeded File</label>
-              <div
-                class="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center hover:border-accent dark:hover:border-accent transition-colors duration-200">
-                <input type="file" id="time_exceeded_file" name="time_exceeded_file"
-                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                <div class="flex flex-col items-center">
-                  <i class="fas fa-cloud-upload-alt text-xl mb-1 text-gray-400 dark:text-gray-500"></i>
-                  <span class="text-sm text-gray-500 dark:text-gray-400">Upload file</span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate w-full">{{ config['time_exceeded']
-                    }}</span>
-                </div>
+              <label for="time_exceeded_select" class="block mb-1">Active Time Exceeded</label>
+              <select id="time_exceeded_select" name="time_exceeded" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
+                {% for file in available_time_exceeded %}
+                  {% set file_path = 'sounds/time_exceeded/' + file %}
+                  <option value="{{ file_path }}" {% if config['time_exceeded'] and file_path in config['time_exceeded'] %}selected{% endif %}>{{ file }}</option>
+                {% endfor %}
+              </select>
+              
+              <div class="flex gap-2">
+                <button type="button" onclick="previewAudio('time_exceeded')" 
+                  class="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-play mr-1"></i> Preview
+                </button>
+                <button type="button" onclick="deleteAudio('time_exceeded')" 
+                  class="flex-1 bg-red-500 hover:bg-red-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                  <i class="fas fa-trash mr-1"></i> Delete
+                </button>
               </div>
+            </div>
+
+            <div class="mb-2 mt-4">
+              <label for="time_exceeded_file" class="block mb-1">Upload New Time Exceeded</label>
+              <input type="file" id="time_exceeded_file" name="time_exceeded_file" accept="audio/wav,audio/x-wav,audio/m4a,audio/x-m4a,audio/mp4,audio/aac,audio/aacp,audio/mpeg,audio/mp3,.wav,.m4a,.aac,.mp3"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2" />
+              <input type="text" id="time_exceeded_name" name="time_exceeded_name" placeholder="Name (optional)"
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+              <span class="text-xs text-gray-500 dark:text-gray-400">Accepts: WAV, M4A, AAC, MP3</span>
             </div>
 
             <div class="mb-2">
@@ -300,13 +348,84 @@
 
 {% endblock %} {% block extra_js %}
 <script>
+  // Global audio player for preview
+  let currentAudio = null;
+
+  // Preview audio file
+  function previewAudio(type) {
+    // Stop any currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+
+    const select = document.getElementById(type + '_select');
+    const selectedPath = select.value;
+    
+    // Extract type and filename from path (e.g., "sounds/greetings/default.wav")
+    const parts = selectedPath.split('/');
+    const audioType = parts[1]; // "greetings", "beeps", or "time_exceeded"
+    const filename = parts[2];
+    
+    // Create audio element and play
+    currentAudio = new Audio(`/sounds/${audioType}/${filename}`);
+    currentAudio.play().catch(err => {
+      console.error('Error playing audio:', err);
+      alert('Failed to play audio file');
+    });
+    
+    // Clean up when finished
+    currentAudio.addEventListener('ended', () => {
+      currentAudio = null;
+    });
+  }
+
+  // Delete audio file
+  function deleteAudio(type) {
+    const select = document.getElementById(type + '_select');
+    
+    if (select.options.length <= 1) {
+      alert('Cannot delete the last audio file. At least one must remain.');
+      return;
+    }
+    
+    const selectedPath = select.value;
+    const parts = selectedPath.split('/');
+    const audioType = parts[1];
+    const filename = parts[2];
+    
+    if (confirm(`Are you sure you want to delete "${filename}"?`)) {
+      fetch(`/delete-audio/${audioType}/${filename}`, {
+        method: 'POST'
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      })
+      .catch(err => {
+        console.error('Error deleting audio:', err);
+        alert('Failed to delete audio file');
+      });
+    }
+  }
+
   // File upload feedback
   document.querySelectorAll('input[type="file"]').forEach((input) => {
     input.addEventListener("change", function () {
       const filename = this.files[0]?.name;
       if (filename) {
-        const label = this.closest("div").querySelector(".text-sm");
-        label.textContent = filename;
+        // Show filename in adjacent name input if empty
+        const nameInput = this.parentElement.querySelector('input[type="text"]');
+        if (nameInput && !nameInput.value) {
+          // Use filename without extension as suggested name
+          const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+          nameInput.value = baseName;
+        }
       }
     });
   });
