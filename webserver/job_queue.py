@@ -245,10 +245,20 @@ class ProcessingQueue:
                     # Clear any prior error on successful processing
                     self.clear_last_error()
                 else:
-                    self.metadata_manager.mark_as_failed(
-                        filename,
-                        "Transcription empty or too short"
-                    )
+                    # Transcription empty/too short - delete the recording
+                    logger.info(f"Transcription empty for {filename}, deleting recording...")
+                    try:
+                        if file_path.exists():
+                            file_path.unlink()
+                            logger.info(f"Deleted silent/empty recording: {filename}")
+                        # Remove metadata entry
+                        self.metadata_manager.remove_recording(filename)
+                    except Exception as del_err:
+                        logger.error(f"Failed to delete {filename}: {del_err}")
+                        self.metadata_manager.mark_as_failed(
+                            filename,
+                            "Transcription empty or too short"
+                        )
             
             except Exception as e:
                 logger.error(f"Processing error for {filename}: {e}")
