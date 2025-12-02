@@ -43,6 +43,38 @@ app = Flask(__name__,
            static_folder=str(STATIC_DIR))
 app.secret_key = "supersecretkey"  # Needed for flashing messages
 
+# Shared path for persisting last OpenAI error
+ERROR_FILE = WEBSERVER_DIR / "last_openai_error.json"
+
+def _read_last_openai_error():
+    """Return dict with last error if OpenAI is enabled and error file exists."""
+    try:
+        if not config.get('openai_enabled', False):
+            return None
+        if ERROR_FILE.exists():
+            import json
+            return json.loads(ERROR_FILE.read_text())
+    except Exception as e:
+        logger.warning(f"Failed to read last OpenAI error: {e}")
+    return None
+
+
+def _clear_last_openai_error():
+    try:
+        if ERROR_FILE.exists():
+            ERROR_FILE.unlink()
+    except Exception as e:
+        logger.warning(f"Failed to clear last OpenAI error: {e}")
+
+
+@app.context_processor
+def inject_template_variables():
+    # Makes variables available to all templates
+    return {
+        "ai_processing_error": _read_last_openai_error(),
+        "version": "3.0.0"  # Major release: AI transcription & metadata extraction, LED indicators, modern UI
+    }
+
 # Define other important paths
 config_path = BASE_DIR / "config.yaml"
 upload_folder = BASE_DIR / "uploads"
@@ -140,6 +172,13 @@ def delete_file(filename):
     file_path = recordings_path / filename
     try:
         file_path.unlink()
+        # Clean up metadata
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+            metadata_mgr.remove_recording(filename)
+        except Exception as meta_error:
+            logger.warning(f"Failed to clean up metadata for {filename}: {meta_error}")
         return jsonify({"success": True, "message": f"{filename} has been deleted."})
     except Exception as e:
         return jsonify(
@@ -177,7 +216,8 @@ def get_recordings():
             logger.warning("Metadata manager not available, returning simple file list")
             if recordings_path.exists() and recordings_path.is_dir():
                 all_items = list(sorted(recordings_path.iterdir(), key=lambda f:f.stat().st_mtime, reverse=True))
-                files = [f.name for f in all_items if f.is_file()]
+                # Only include WAV files, exclude metadata JSON and other files
+                files = [f.name for f in all_items if f.is_file() and f.suffix.lower() == '.wav']
                 return jsonify(files)
             else:
                 logger.error(f"Recordings path is not a valid directory: {recordings_path}")
@@ -240,6 +280,30 @@ def process_pending_recordings():
         }), 500
 
 
+def validate_openai_api_key(api_key):
+    """Validate OpenAI API key by making a test request."""
+    if not api_key or len(api_key) < 20:
+        return False, "API key is too short or empty"
+    
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        
+        # Test with a minimal API call to list models
+        # This verifies the key works and has basic permissions
+        models = client.models.list()
+        return True, "API key verified successfully"
+    except Exception as e:
+        error_msg = str(e)
+        if "invalid_api_key" in error_msg.lower() or "incorrect api key" in error_msg.lower():
+            return False, "Invalid API key"
+        elif "insufficient" in error_msg.lower() or "permission" in error_msg.lower():
+            return False, "API key lacks required permissions"
+        elif "rate_limit" in error_msg.lower():
+            return False, "Rate limit exceeded - try again in a moment"
+        else:
+            return False, f"Verification failed: {error_msg[:100]}"
+
 @app.route("/config", methods=["GET", "POST"])
 def edit_config():
     """Handle GET and POST requests to edit the configuration."""
@@ -248,6 +312,37 @@ def edit_config():
         for key, value in request.form.items():
             logger.info(f"  {key}: {value}")
         try:
+            # Validate OpenAI API key if it was changed
+            if 'openai_api_key' in request.form:
+                new_api_key = request.form['openai_api_key'].strip()
+                old_api_key = config.get('openai_api_key', '')
+                
+                # Only validate if the key actually changed and is not empty
+                if new_api_key and new_api_key != old_api_key:
+                    logger.info("Validating new OpenAI API key...")
+                    is_valid, message = validate_openai_api_key(new_api_key)
+                    
+                    if not is_valid:
+                        logger.error(f"API key validation failed: {message}")
+                        flash(f"OpenAI API Key Error: {message}", "error")
+                        return redirect(url_for("edit_config"))
+                    else:
+                        logger.info("API key validated successfully")
+                        config['openai_key_verified'] = True
+                        flash("OpenAI API key verified successfully!", "success")
+                        # Clear any prior AI error now that key is valid
+                        _clear_last_openai_error()
+                elif not new_api_key and old_api_key:
+                    # Key was cleared - this is intentional removal
+                    config['openai_key_verified'] = False
+                elif not new_api_key and not old_api_key:
+                    # Both empty - user is trying to enable AI without a key
+                    if request.form.get('openai_enabled') == 'true':
+                        logger.error("Attempted to enable AI without API key")
+                        flash("OpenAI API Key Error: Please provide an API key before enabling AI processing", "error")
+                        return redirect(url_for("edit_config"))
+                # else: new_api_key is empty but old_api_key exists - user is just saving other settings, keep existing key
+            
             # Track which fields had file uploads
             uploaded_fields = []
             
@@ -314,6 +409,10 @@ def edit_config():
 
             with config_path.open("w") as f:
                 yaml.dump(config, f)
+
+            # If AI was disabled via this save, clear any previous error
+            if not config.get('openai_enabled', False):
+                _clear_last_openai_error()
 
             # Restart the audioGuestBook service to apply changes
             try:
@@ -688,6 +787,14 @@ def update_config(form_data, skip_fields=None):
                 config[key] = int(value)
             elif isinstance(config.get(key), float):
                 config[key] = float(value)
+            elif isinstance(config.get(key), list):
+                # Handle list fields (comma-separated strings)
+                if value and value.strip():
+                    # Split by comma, strip whitespace, filter empty strings
+                    config[key] = [item.strip() for item in value.split(',') if item.strip()]
+                    logger.info(f"Converting to list: {value} → {config[key]}")
+                else:
+                    config[key] = []
             else:
                 config[key] = value
 
@@ -732,6 +839,14 @@ def delete_recordings():
         deleted_files = []
         failed_files = []
 
+        # Initialize metadata manager for cleanup
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+        except Exception as e:
+            logger.warning(f"Metadata manager not available: {e}")
+            metadata_mgr = None
+        
         for filename in data['ids']:
             file_path = recordings_path / filename
             try:
@@ -739,6 +854,12 @@ def delete_recordings():
                     file_path.unlink()
                     deleted_files.append(filename)
                     logger.info(f"Successfully deleted: {filename}")
+                    # Clean up metadata
+                    if metadata_mgr:
+                        try:
+                            metadata_mgr.remove_recording(filename)
+                        except Exception as meta_error:
+                            logger.warning(f"Failed to clean up metadata for {filename}: {meta_error}")
                 else:
                     failed_files.append(filename)
                     logger.warning(f"File not found: {filename}")

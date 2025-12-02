@@ -23,6 +23,10 @@ class ProcessingQueue:
         self.last_recording_time = 0  # Track when last recording was made
         self.cooldown_seconds = config.get('openai_processing_cooldown', 120)
         self.allow_processing_during_call = config.get('openai_allow_processing_during_call', False)
+        self.last_error = None  # Track last processing error
+        self.last_error_time = None  # When the error occurred
+        self.is_processing = False  # Track if actively processing (for LED indicator)
+        self.processing_callback = None  # Callback to notify when processing state changes
     
     def start(self):
         """Start background worker thread."""
@@ -35,6 +39,8 @@ class ProcessingQueue:
             )
             self.worker_thread.start()
             logger.info("AI processing queue started")
+            # Clear any stale error on startup
+            self.clear_last_error()
     
     def stop(self):
         """Stop background worker."""
@@ -56,6 +62,50 @@ class ProcessingQueue:
             self.metadata_manager.update_metadata(filename, {
                 'ai_metadata': {'processing_status': 'skipped'}
             })
+        
+    # -------- Error tracking helpers --------
+    def _error_file_path(self) -> Path:
+        base_dir = Path(__file__).parent.parent  # project root
+        return base_dir / 'webserver' / 'last_openai_error.json'
+
+    def set_last_error(self, message: str):
+        """Persist last API/processing error to a small JSON file."""
+        import json
+        from datetime import datetime
+        self.last_error = message
+        self.last_error_time = time.time()
+        payload = {
+            'message': message,
+            'timestamp': datetime.utcnow().isoformat() + 'Z'
+        }
+        try:
+            path = self._error_file_path()
+            path.write_text(json.dumps(payload))
+            logger.debug(f"Wrote last error to {path}")
+        except Exception as e:
+            logger.warning(f"Failed to persist last error: {e}")
+
+    def get_last_error(self):
+        """Return the last error dict if available, else None."""
+        import json
+        path = self._error_file_path()
+        if path.exists():
+            try:
+                return json.loads(path.read_text())
+            except Exception:
+                return {'message': self.last_error, 'timestamp': self.last_error_time}
+        return None
+
+    def clear_last_error(self):
+        """Clear persisted error and in-memory error state."""
+        self.last_error = None
+        self.last_error_time = None
+        path = self._error_file_path()
+        try:
+            if path.exists():
+                path.unlink()
+        except Exception as e:
+            logger.warning(f"Failed to clear last error file: {e}")
     
     def _worker(self):
         """Background worker - processes queue only when phone is idle."""
@@ -119,12 +169,22 @@ class ProcessingQueue:
                 
                 # PROCESS THE RECORDING
                 logger.info(f"Processing {filename}...")
+                self.is_processing = True
+                if self.processing_callback:
+                    self.processing_callback(True)  # Notify: AI started
+                
                 result = self.processor.process_recording(audio_file_path, filename)
+                
+                self.is_processing = False
+                if self.processing_callback:
+                    self.processing_callback(False)  # Notify: AI finished
                 
                 if result:
                     # Update metadata with results
                     self.metadata_manager.mark_as_completed(filename, result)
                     logger.info(f"Successfully processed {filename}")
+                    # Clear any prior error on successful processing
+                    self.clear_last_error()
                 else:
                     self.metadata_manager.mark_as_failed(
                         filename,
@@ -133,7 +193,12 @@ class ProcessingQueue:
             
             except Exception as e:
                 logger.error(f"Processing error for {filename}: {e}")
+                self.is_processing = False
+                if self.processing_callback:
+                    self.processing_callback(False)  # Notify: AI finished (with error)
                 self.metadata_manager.mark_as_failed(filename, str(e))
+                # Persist last error for display in UI without disabling processing
+                self.set_last_error(str(e))
             
             finally:
                 # Only call task_done if we actually got a task from the queue

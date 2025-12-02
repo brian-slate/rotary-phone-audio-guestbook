@@ -9,6 +9,7 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
   <title>{% block title %}Audio Guestbook{% endblock %}</title>
   <link href="{{ url_for('static', filename='css/output.min.css') }}" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet" />
   <!-- Load theme.js first to ensure it initializes before page content -->
   <script src="{{ url_for('static', filename='js/theme.js') }}" defer></script>
   <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
@@ -88,8 +89,27 @@
     </div>
   </header>
   <main class="container mx-auto px-4 py-8">
+    {% if ai_processing_error %}
+      <div class="mb-6 p-4 border-l-4 border-red-600 bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200 rounded" role="alert">
+        <div class="flex items-start">
+          <i class="fas fa-exclamation-triangle mr-3 mt-1"></i>
+          <div>
+            <p class="font-semibold">AI processing error</p>
+            <p class="text-sm">{{ ai_processing_error.message }}</p>
+            {% if ai_processing_error.timestamp %}
+              <p class="text-xs opacity-75 mt-1">Last error at {{ ai_processing_error.timestamp }}</p>
+            {% endif %}
+            <p class="text-xs mt-2">AI is still enabled. You can disable it or update your API key in <a href="{{ url_for('edit_config') }}" class="underline">Settings</a>.</p>
+          </div>
+        </div>
+      </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
+
+  <footer class="text-center py-4 text-xs text-gray-500 dark:text-gray-400">
+    <p>Audio Guestbook v{{ version }}</p>
+  </footer>
 
   <script src="{{ url_for('static', filename='js/menu.js') }}"></script>
   <!-- Add global script for reboot/shutdown functionality -->

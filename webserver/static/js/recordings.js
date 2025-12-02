@@ -184,71 +184,103 @@ function createRecordingItem(recording) {
   const isProcessing = metadata.processing_status === 'processing';
   const isPending = metadata.processing_status === 'pending';
   
-  // Processing status indicator
+  // Processing status indicator (no checkmark for completed)
   let statusIndicator = '';
   if (isProcessing) {
     statusIndicator = '<i class="fas fa-spinner fa-spin ml-2 text-blue-500" title="Processing..."></i>';
   } else if (isPending) {
     statusIndicator = '<i class="fas fa-clock ml-2 text-gray-400" title="Pending processing"></i>';
-  } else if (isProcessed) {
-    statusIndicator = '<i class="fas fa-check-circle ml-2 text-green-500" title="Processed"></i>';
   }
   
-  // Format speaker names
+  // Format speaker names with commas
   const speakerDisplay = metadata.speaker_names && metadata.speaker_names.length > 0
-    ? metadata.speaker_names.join(', ')
-    : '-';
+    ? `<span class="text-xs text-gray-600 dark:text-gray-400">${metadata.speaker_names.join(', ')}</span>`
+    : '';
   
-  // Category badge with color coding
-  const categoryColors = {
-    joyful: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    heartfelt: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    humorous: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    nostalgic: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-    advice: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    blessing: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
-    toast: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
-    gratitude: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
-    apology: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-    other: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+  // Category badge with Tailwind pill style with border and dot
+  const categoryConfig = {
+    joyful:    { bg: 'bg-yellow-50 dark:bg-yellow-950', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-600/10 dark:border-yellow-400/20', dot: 'fill-yellow-500 dark:fill-yellow-400' },
+    heartfelt: { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-700 dark:text-red-300', border: 'border-red-600/10 dark:border-red-400/20', dot: 'fill-red-500 dark:fill-red-400' },
+    humorous:  { bg: 'bg-green-50 dark:bg-green-950', text: 'text-green-700 dark:text-green-300', border: 'border-green-600/10 dark:border-green-400/20', dot: 'fill-green-500 dark:fill-green-400' },
+    nostalgic: { bg: 'bg-purple-50 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-600/10 dark:border-purple-400/20', dot: 'fill-purple-500 dark:fill-purple-400' },
+    advice:    { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-600/10 dark:border-blue-400/20', dot: 'fill-blue-500 dark:fill-blue-400' },
+    blessing:  { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-600/10 dark:border-indigo-400/20', dot: 'fill-indigo-500 dark:fill-indigo-400' },
+    toast:     { bg: 'bg-pink-50 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-600/10 dark:border-pink-400/20', dot: 'fill-pink-500 dark:fill-pink-400' },
+    gratitude: { bg: 'bg-teal-50 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-600/10 dark:border-teal-400/20', dot: 'fill-teal-500 dark:fill-teal-400' },
+    apology:   { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' },
+    other:     { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' }
   };
   
-  const categoryClass = categoryColors[metadata.category] || 'bg-gray-100 text-gray-800';
+  // Function to generate consistent color for unknown categories
+  const getCategoryStyle = (categoryName) => {
+    if (categoryConfig[categoryName]) {
+      return categoryConfig[categoryName];
+    }
+    // Generate consistent color from category name hash
+    const colors = [
+      { bg: 'bg-amber-50 dark:bg-amber-950', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-600/10 dark:border-amber-400/20', dot: 'fill-amber-500 dark:fill-amber-400' },
+      { bg: 'bg-lime-50 dark:bg-lime-950', text: 'text-lime-700 dark:text-lime-300', border: 'border-lime-600/10 dark:border-lime-400/20', dot: 'fill-lime-500 dark:fill-lime-400' },
+      { bg: 'bg-cyan-50 dark:bg-cyan-950', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-600/10 dark:border-cyan-400/20', dot: 'fill-cyan-500 dark:fill-cyan-400' },
+      { bg: 'bg-fuchsia-50 dark:bg-fuchsia-950', text: 'text-fuchsia-700 dark:text-fuchsia-300', border: 'border-fuchsia-600/10 dark:border-fuchsia-400/20', dot: 'fill-fuchsia-500 dark:fill-fuchsia-400' },
+      { bg: 'bg-rose-50 dark:bg-rose-950', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-600/10 dark:border-rose-400/20', dot: 'fill-rose-500 dark:fill-rose-400' },
+      { bg: 'bg-violet-50 dark:bg-violet-950', text: 'text-violet-700 dark:text-violet-300', border: 'border-violet-600/10 dark:border-violet-400/20', dot: 'fill-violet-500 dark:fill-violet-400' },
+      { bg: 'bg-sky-50 dark:bg-sky-950', text: 'text-sky-700 dark:text-sky-300', border: 'border-sky-600/10 dark:border-sky-400/20', dot: 'fill-sky-500 dark:fill-sky-400' },
+      { bg: 'bg-emerald-50 dark:bg-emerald-950', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-600/10 dark:border-emerald-400/20', dot: 'fill-emerald-500 dark:fill-emerald-400' }
+    ];
+    const hash = categoryName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+  
+  const category = getCategoryStyle(metadata.category);
   const categoryBadge = metadata.category
-    ? `<span class="px-2 py-1 rounded text-xs font-semibold ${categoryClass}">${metadata.category}</span>`
-    : '-';
+    ? `<span class="inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs font-medium border ${category.bg} ${category.text} ${category.border}">
+         <svg class="h-1.5 w-1.5 ${category.dot}" viewBox="0 0 6 6" aria-hidden="true">
+           <circle cx="3" cy="3" r="3" />
+         </svg>
+         ${metadata.category}
+       </span>`
+    : '';
 
   row.innerHTML = `
       <td class="p-2 text-center"><input type="checkbox" class="recording-checkbox w-4 h-4" data-id="${filename}"></td>
       <td class="p-2">
         <div class="flex items-center">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3" style="background-color: ${iconColor}">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 flex-shrink-0" style="background-color: ${iconColor}">
             <i class="fas fa-microphone text-white"></i>
           </div>
-          <div>
-            <span class="recording-name font-semibold cursor-pointer hover:text-blue-600"
-                  data-filename="${filename}"
-                  title="${metadata.transcription ? 'Click to view transcription' : filename}">
-              ${displayTitle}
-            </span>
-            ${statusIndicator}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="recording-name font-semibold cursor-pointer hover:text-blue-600 truncate"
+                    data-filename="${filename}"
+                    title="${metadata.transcription ? 'Click to view transcription' : filename}">
+                ${displayTitle}
+              </span>
+              ${statusIndicator}
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              ${speakerDisplay ? `<div class="flex items-center gap-1">${speakerDisplay}</div>` : ''}
+              ${categoryBadge}
+            </div>
           </div>
         </div>
       </td>
-      <td class="p-2 text-sm text-gray-700 dark:text-gray-300">${speakerDisplay}</td>
-      <td class="p-2">${categoryBadge}</td>
       <td class="p-2">
         <audio class="audio-player" src="/recordings/${filename}"></audio>
       </td>
-      <td class="p-2 recording-date text-sm text-gray-600 dark:text-gray-400">${formattedDate}</td>
-      <td class="p-2">
-        <button class="delete-button bg-red-500 hover:bg-red-600 text-white rounded-md px-3 py-2 flex items-center transition-colors duration-200 shadow-sm">
-          <i class="fas fa-times mr-1"></i><span class="hidden sm:inline">Delete</span>
-        </button>
+      <td class="p-2 recording-date text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">${formattedDate}</td>
+      <td class="p-2 text-right">
+        <div class="flex items-center justify-end gap-2">
+          ${metadata.transcription ? `<button class="view-transcript-button bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm" title="View transcription">
+            <i class="fas fa-file-alt text-sm"></i>
+          </button>` : ''}
+          <button class="delete-button bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm" title="Delete">
+            <i class="fas fa-times text-sm"></i>
+          </button>
+        </div>
       </td>
     `;
   
-  // Add click handler to show transcription modal
+  // Add click handlers
   const nameSpan = row.querySelector('.recording-name');
   nameSpan.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -256,6 +288,15 @@ function createRecordingItem(recording) {
       showTranscriptionModal(filename, metadata);
     }
   });
+  
+  // Add handler for view transcript button
+  const transcriptButton = row.querySelector('.view-transcript-button');
+  if (transcriptButton) {
+    transcriptButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showTranscriptionModal(filename, metadata);
+    });
+  }
 
   row.dataset.filename = filename;
   row.dataset.status = metadata.processing_status || '';
@@ -364,6 +405,7 @@ function setupEventListeners() {
       if (e.target.type === "checkbox") return; // Don't toggle selection when clicking the checkbox
       if (e.target.closest('.plyr')) return; // Don't toggle selection when clicking the player
       if (e.target.closest('.delete-button')) return; // Don't toggle selection when clicking delete
+      if (e.target.closest('.view-transcript-button')) return; // Don't toggle when clicking transcript button
       if (e.target.classList.contains('recording-name')) return; // Don't toggle when clicking the name
 
       const checkbox = this.querySelector(".recording-checkbox");
@@ -465,7 +507,7 @@ function showTranscriptionModal(filename, recording) {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
   modal.innerHTML = `
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Transcription</h2>
         <button class="close-modal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
@@ -473,29 +515,29 @@ function showTranscriptionModal(filename, recording) {
         </button>
       </div>
       
-      <div class="mb-4 space-y-2">
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          <strong>File:</strong> ${filename}
+      <div class="mb-4 space-y-2 border-b border-gray-200 dark:border-gray-600 pb-4">
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          <strong class="text-gray-900 dark:text-white">File:</strong> ${filename}
         </p>
         ${recording.speaker_names && recording.speaker_names.length > 0 ? `
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Speakers:</strong> ${recording.speaker_names.join(', ')}
+          <p class="text-sm text-gray-700 dark:text-gray-300">
+            <strong class="text-gray-900 dark:text-white">Speakers:</strong> ${recording.speaker_names.join(', ')}
           </p>
         ` : ''}
         ${recording.category ? `
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Category:</strong> ${recording.category}
+          <p class="text-sm text-gray-700 dark:text-gray-300">
+            <strong class="text-gray-900 dark:text-white">Category:</strong> ${recording.category}
           </p>
         ` : ''}
         ${recording.confidence ? `
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            <strong>Confidence:</strong> ${(recording.confidence * 100).toFixed(0)}%
+          <p class="text-sm text-gray-700 dark:text-gray-300">
+            <strong class="text-gray-900 dark:text-white">Confidence:</strong> ${(recording.confidence * 100).toFixed(0)}%
           </p>
         ` : ''}
       </div>
       
-      <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
-        <p class="text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed">
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+        <p class="text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
           ${recording.transcription}
         </p>
       </div>

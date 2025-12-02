@@ -13,3 +13,6 @@ node_modules/
 *.lock
 static/css/tailwind.css
 test/
+.requirements.txt.md5
+config.yaml
+config.yaml.merged

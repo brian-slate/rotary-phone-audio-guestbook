@@ -1,0 +1,3 @@
+# Allow admin user to stop bootLed service without password
+# This is required for audioGuestBook service to take control of LEDs
+admin ALL=(ALL) NOPASSWD: /bin/systemctl stop bootLed.service

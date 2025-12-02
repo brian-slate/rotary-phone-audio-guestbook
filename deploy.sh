@@ -33,19 +33,83 @@ rsync -avz --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI
 # Step 2: SSH into the Raspberry Pi to execute commands there
 echo "Connecting to Raspberry Pi to complete deployment..."
 ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
-    # Install required system packages
+    # Install system dependencies
     echo "Installing system dependencies..."
     sudo apt-get update
-    sudo apt-get install -y ffmpeg
+    sudo apt-get install -y ffmpeg python3-venv
     
-    # Install Python dependencies from requirements.txt
-    echo "Installing Python dependencies..."
+    # Ensure user is in gpio group for hardware access
+    if ! groups | grep -q gpio; then
+        echo "Adding ${RPI_USER} to gpio group..."
+        sudo usermod -a -G gpio ${RPI_USER}
+        echo "Note: GPIO group added. You may need to log out/in for changes to take effect."
+    fi
+    
+    # Ensure venv exists and has pip
     cd ${RPI_PROJECT_DIR}
-    if [ -f "requirements.txt" ]; then
-        pip3 install -r requirements.txt --break-system-packages 2>/dev/null || pip3 install -r requirements.txt
+    if [ ! -d ".venv" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv .venv
+        echo "Installing pip setuptools wheel..."
+        .venv/bin/pip install --upgrade pip setuptools wheel
+        # Force install on new venv
+        FORCE_INSTALL=true
     else
-        echo "Warning: requirements.txt not found, installing base packages..."
-        pip3 install openai requests --break-system-packages 2>/dev/null || pip3 install openai requests
+        FORCE_INSTALL=false
+    fi
+    
+    # Check if requirements.txt changed
+    REQUIREMENTS_CHANGED=false
+    if [ -f "requirements.txt" ]; then
+        if [ -f ".requirements.txt.md5" ]; then
+            OLD_MD5=\$(cat .requirements.txt.md5)
+            NEW_MD5=\$(md5sum requirements.txt | cut -d' ' -f1)
+            if [ "\$OLD_MD5" != "\$NEW_MD5" ]; then
+                REQUIREMENTS_CHANGED=true
+                echo "Detected requirements change (old: \$OLD_MD5, new: \$NEW_MD5)"
+            fi
+        else
+            REQUIREMENTS_CHANGED=true
+            echo "No previous requirements hash found, will install packages"
+        fi
+    fi
+    
+    # Install packages if requirements changed OR venv was just created
+    if [ "\$REQUIREMENTS_CHANGED" = "true" ] || [ "\$FORCE_INSTALL" = "true" ]; then
+        echo "Installing Python packages..."
+        echo "Stopping services to free up resources..."
+        sudo systemctl stop audioGuestBook.service audioGuestBookWebServer.service 2>/dev/null || true
+        
+        if [ -f "requirements.txt" ]; then
+            # Install into venv using pip
+            echo "Installing from requirements.txt..."
+            .venv/bin/pip install -r requirements.txt
+            md5sum requirements.txt | cut -d' ' -f1 > .requirements.txt.md5
+            echo "Packages installed successfully"
+        else
+            echo "Warning: requirements.txt not found, installing base packages..."
+            .venv/bin/pip install openai requests flask gunicorn gevent gpiozero ruamel-yaml psutil
+        fi
+    else
+        echo "Requirements unchanged (MD5: \$(cat .requirements.txt.md5 2>/dev/null || echo 'unknown')), skipping package installation"
+    fi
+    
+    # Merge config.yaml to preserve user settings while adding new defaults
+    echo "Merging config.yaml (preserving your settings)..."
+    if [ -f "${RPI_PROJECT_DIR}/config.yaml.template" ] && [ -f "${RPI_PROJECT_DIR}/config.yaml" ]; then
+        python3 ${RPI_PROJECT_DIR}/scripts/merge_config.py \
+            ${RPI_PROJECT_DIR}/config.yaml.template \
+            ${RPI_PROJECT_DIR}/config.yaml \
+            ${RPI_PROJECT_DIR}/config.yaml.merged
+        
+        if [ $? -eq 0 ]; then
+            mv ${RPI_PROJECT_DIR}/config.yaml.merged ${RPI_PROJECT_DIR}/config.yaml
+            echo "Config merge completed successfully"
+        else
+            echo "Warning: Config merge failed, keeping existing config"
+        fi
+    else
+        echo "No config template found, skipping merge"
     fi
     
     # Copy service files to systemd directory

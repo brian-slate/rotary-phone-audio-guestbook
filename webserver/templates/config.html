@@ -1,5 +1,7 @@
 {% extends "base.html" %} {% block title %}Audio Guestbook - Settings{% endblock
-%} {% block content %}
+%} 
+
+{% block content %}
 
 <h1 class="text-3xl font-bold text-center mb-8">Edit Configuration</h1>
 
@@ -11,28 +13,9 @@
 {% endfor %} {% endif %} {% endwith %}
 
 <form id="form-id" method="POST" action="{{ url_for('edit_config') }}" enctype="multipart/form-data" class="space-y-4">
-  <!-- Audio Settings Card -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
-    <div class="card">
-      <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-        <h2 class="font-bold text-lg text-text dark:text-dark-text">
-          Audio Settings
-        </h2>
-      </div>
-      <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
-        {% for field in ['alsa_hw_mapping', 'mixer_control_name', 'format',
-        'file_type', 'channels', 'sample_rate'] %}
-        <div class="mb-2 lg:mb-4">
-          <label for="{{ field }}" class="block mb-1 lg:mb-2">{{ field|replace('_', ' ')|title }}</label>
-          <input type="text" id="{{ field }}" name="{{ field }}" value="{{ config[field] }}"
-            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-        </div>
-        {% endfor %}
-      </div>
-    </div>
 
-    <!-- Audio Files Card -->
-    <div class="card col-span-1 sm:col-span-2">
+  <!-- Audio Files Card (Always Visible) -->
+  <div class="card">
       <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
         <h2 class="font-bold text-lg text-text dark:text-dark-text">
           Audio Files
@@ -230,8 +213,20 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Recording Settings Card -->
+  <!-- Advanced Mode Toggle -->
+  <div class="mb-6 text-center">
+    <button type="button" id="advancedModeToggle" onclick="toggleAdvancedMode()" 
+      class="bg-gray-500 hover:bg-gray-600 text-white rounded text-lg transition-colors">
+      <i class="fas fa-cog mr-2"></i><span id="advancedModeText">Show Advanced Settings</span>
+    </button>
+  </div>
+
+  <!-- Advanced Settings (Hidden by Default) -->
+  <div id="advancedSettings" style="display: none;" class="space-y-4">
+
+  <!-- Recording Settings Card -->
     <div class="card">
       <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
         <h2 class="font-bold text-lg text-text dark:text-dark-text">
@@ -323,18 +318,151 @@
             <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Disable to keep all recordings for debugging</span>
           </div>
         </div>
+
+        <!-- Recording Behavior Settings -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+          <h3 class="font-semibold mb-3 flex items-center">
+            Recording Behavior
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Settings that control how recordings are triggered and handled">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </h3>
+
+          <!-- Hook Bounce Time -->
+          <div class="mb-2 lg:mb-4">
+            <label for="hook_bounce_time" class="block mb-1 lg:mb-2 flex items-center">
+              Hook Bounce Time (seconds)
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Seconds to wait after hook state change before accepting another change. Prevents accidental double-pickups (0.2 is typical).">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" step="0.1" id="hook_bounce_time" name="hook_bounce_time" value="{{ config.get('hook_bounce_time', 0.2) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+
+          <!-- Record Greeting Bounce Time -->
+          <div class="mb-2 lg:mb-4">
+            <label for="record_greeting_bounce_time" class="block mb-1 lg:mb-2 flex items-center">
+              Record Greeting Bounce Time (seconds)
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Bounce time for the record greeting button to prevent accidental triggers">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" step="0.1" id="record_greeting_bounce_time" name="record_greeting_bounce_time" value="{{ config.get('record_greeting_bounce_time', 0.1) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+
+          <!-- Hook Toggle Record Mode -->
+          <div class="mb-2 lg:mb-4">
+            <label for="hook_toggle_record_enabled" class="block mb-1 lg:mb-2 flex items-center">
+              Hook Toggle Record Mode
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="When enabled, rapidly picking up and hanging up the phone 20 times within 6 seconds will trigger greeting recording mode. LEDs will pulse blue, then you can record a new greeting directly on the phone.">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <div class="flex items-center space-x-4">
+              {% if config.get('hook_toggle_record_enabled', True) %}
+              <label class="inline-flex items-center">
+                <input type="radio" name="hook_toggle_record_enabled" value="true" checked class="mr-1" />
+                <span>Enabled</span>
+              </label>
+              <label class="inline-flex items-center">
+                <input type="radio" name="hook_toggle_record_enabled" value="false" class="mr-1" />
+                <span>Disabled</span>
+              </label>
+              {% else %}
+              <label class="inline-flex items-center">
+                <input type="radio" name="hook_toggle_record_enabled" value="true" class="mr-1" />
+                <span>Enabled</span>
+              </label>
+              <label class="inline-flex items-center">
+                <input type="radio" name="hook_toggle_record_enabled" value="false" checked class="mr-1" />
+                <span>Disabled</span>
+              </label>
+              {% endif %}
+            </div>
+            <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allows recording greetings by rapidly toggling the hook switch</span>
+          </div>
+
+          <!-- Hook Toggle Count -->
+          <div class="mb-2 lg:mb-4">
+            <label for="hook_toggle_count" class="block mb-1 lg:mb-2 flex items-center">
+              Hook Toggle Count
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Number of rapid hook toggles required to trigger greeting recording mode (default: 20)">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" id="hook_toggle_count" name="hook_toggle_count" value="{{ config.get('hook_toggle_count', 20) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+
+          <!-- Hook Toggle Window -->
+          <div class="mb-2 lg:mb-4">
+            <label for="hook_toggle_window" class="block mb-1 lg:mb-2 flex items-center">
+              Hook Toggle Window (seconds)
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Time window in seconds to detect the required number of toggles (default: 6.0)">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="number" step="0.1" id="hook_toggle_window" name="hook_toggle_window" value="{{ config.get('hook_toggle_window', 6.0) }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+
+          <!-- Record Greeting Prompt -->
+          <div class="mb-2 lg:mb-4">
+            <label for="record_greeting_prompt" class="block mb-1 lg:mb-2 flex items-center">
+              Record Greeting Prompt Audio Path
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Path to the audio file played when entering greeting recording mode">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="text" id="record_greeting_prompt" name="record_greeting_prompt" value="{{ config.get('record_greeting_prompt', '') }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+
+          <!-- Recordings Path -->
+          <div class="mb-2 lg:mb-4">
+            <label for="recordings_path" class="block mb-1 lg:mb-2 flex items-center">
+              Recordings Path
+              <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Directory where recordings are stored">
+                <i class="fas fa-info-circle"></i>
+              </span>
+            </label>
+            <input type="text" id="recordings_path" name="recordings_path" value="{{ config.get('recordings_path', '') }}"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- Audio Settings Card -->
+  <div class="card">
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text">
+        Audio Settings
+      </h2>
+    </div>
+    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for field in ['alsa_hw_mapping', 'mixer_control_name', 'format', 'file_type', 'channels', 'sample_rate'] %}
+        <div class="mb-2">
+          <label for="{{ field }}" class="block mb-1">{{ field|replace('_', ' ')|title }}</label>
+          <input type="text" id="{{ field }}" name="{{ field }}" value="{{ config[field] }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+        {% endfor %}
       </div>
     </div>
   </div>
 
-<!-- GPIO Settings Card -->
-<div class="card">
-  <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-    <h2 class="font-bold text-lg text-text dark:text-dark-text">
-      GPIO Settings
-    </h2>
-  </div>
-  <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+  <!-- GPIO Settings Card -->
+  <div class="card">
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text">
+        GPIO Settings
+      </h2>
+    </div>
+    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
     <!-- Hook GPIO -->
     <div class="mb-2 lg:mb-4">
       <label for="hook_gpio" class="block mb-1 lg:mb-2">Hook Gpio</label>
@@ -376,74 +504,33 @@
       <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Set to "Yes" if your phone's hook behavior is reversed</span>
     </div>
 
-    <!-- Hook Bounce Time -->
+    <!-- Record Greeting GPIO -->
     <div class="mb-2 lg:mb-4">
-      <label for="hook_bounce_time" class="block mb-1 lg:mb-2 flex items-center">
-        Hook Bounce Time
-        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Seconds to wait after hook state change before accepting another change. Prevents accidental double-pickups (0.2 is typical).">
+      <label for="record_greeting_gpio" class="block mb-1 lg:mb-2 flex items-center">
+        Record Greeting GPIO Pin
+        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="GPIO pin number for the physical record greeting button (set to 0 to disable)">
           <i class="fas fa-info-circle"></i>
         </span>
       </label>
-      <input type="text" id="hook_bounce_time" name="hook_bounce_time" value="{{ config['hook_bounce_time'] }}"
-        class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-    </div>
-
-    <!-- Record Greeting GPIO -->
-    <div class="mb-2 lg:mb-4">
-      <label for="record_greeting_gpio" class="block mb-1 lg:mb-2">Record Greeting Gpio</label>
-      <input type="text" id="record_greeting_gpio" name="record_greeting_gpio" value="{{ config['record_greeting_gpio'] }}"
+      <input type="number" id="record_greeting_gpio" name="record_greeting_gpio" value="{{ config.get('record_greeting_gpio', 23) }}"
         class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
     </div>
 
     <!-- Record Greeting Type -->
     <div class="mb-2 lg:mb-4">
-      <label for="record_greeting_type" class="block mb-1 lg:mb-2">Record Greeting Type</label>
-      <input type="text" id="record_greeting_type" name="record_greeting_type" value="{{ config['record_greeting_type'] }}"
-        class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-    </div>
-
-    <!-- Record Greeting Bounce Time -->
-    <div class="mb-2 lg:mb-4">
-      <label for="record_greeting_bounce_time" class="block mb-1 lg:mb-2">Record Greeting Bounce Time</label>
-      <input type="text" id="record_greeting_bounce_time" name="record_greeting_bounce_time" value="{{ config['record_greeting_bounce_time'] }}"
-        class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-    </div>
-
-    <!-- Hook Toggle Record Mode -->
-    <div class="mb-2 lg:mb-4">
-      <label for="hook_toggle_record_enabled" class="block mb-1 lg:mb-2 flex items-center">
-        Hook Toggle Record Mode
-        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="When enabled, rapidly picking up and hanging up the phone 20 times within 6 seconds will trigger greeting recording mode. LEDs will pulse blue, then you can record a new greeting directly on the phone.">
+      <label for="record_greeting_type" class="block mb-1 lg:mb-2 flex items-center">
+        Record Greeting Button Type
+        <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Button type: NC (Normally Closed) or NO (Normally Open)">
           <i class="fas fa-info-circle"></i>
         </span>
       </label>
-      <div class="flex items-center space-x-4">
-        {% if config.get('hook_toggle_record_enabled', True) %}
-        <label class="inline-flex items-center">
-          <input type="radio" name="hook_toggle_record_enabled" value="true" checked class="mr-1" />
-          <span>Enabled</span>
-        </label>
-        <label class="inline-flex items-center">
-          <input type="radio" name="hook_toggle_record_enabled" value="false" class="mr-1" />
-          <span>Disabled</span>
-        </label>
-        {% else %}
-        <label class="inline-flex items-center">
-          <input type="radio" name="hook_toggle_record_enabled" value="true" class="mr-1" />
-          <span>Enabled</span>
-        </label>
-        <label class="inline-flex items-center">
-          <input type="radio" name="hook_toggle_record_enabled" value="false" checked class="mr-1" />
-          <span>Disabled</span>
-        </label>
-        {% endif %}
-      </div>
-      <span class="text-xs text-gray-500 dark:text-gray-400 mt-1">Allows recording greetings by rapidly toggling the hook switch</span>
+      <input type="text" id="record_greeting_type" name="record_greeting_type" value="{{ config.get('record_greeting_type', 'NC') }}"
+        class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
     </div>
   </div>
 </div>
 
-  <!-- Reboot/Shutdown Settings Card -->
+  <!-- Shutdown Settings Card -->
   <div class="card">
     <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
       <h2 class="font-bold text-lg text-text dark:text-dark-text">
@@ -467,6 +554,342 @@
     </div>
   </div>
 
+  <!-- OpenAI AI Processing Settings Card -->
+  <div class="card">
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text">
+        <i class="fas fa-robot mr-2"></i>OpenAI AI Processing Settings
+      </h2>
+    </div>
+    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      
+      <!-- Enable AI Processing -->
+      <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+        <label for="openai_enabled" class="block mb-1 font-semibold flex items-center">
+          Enable AI Processing
+          <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Enable AI-powered transcription and metadata extraction">
+            <i class="fas fa-info-circle"></i>
+          </span>
+        </label>
+        <div class="flex items-center space-x-4">
+          {% if config.get('openai_enabled', False) %}
+          <label class="inline-flex items-center">
+            <input type="radio" name="openai_enabled" value="true" checked class="mr-1" />
+            <span>Enabled</span>
+          </label>
+          <label class="inline-flex items-center">
+            <input type="radio" name="openai_enabled" value="false" class="mr-1" />
+            <span>Disabled</span>
+          </label>
+          {% else %}
+          <label class="inline-flex items-center">
+            <input type="radio" name="openai_enabled" value="true" class="mr-1" />
+            <span>Enabled</span>
+          </label>
+          <label class="inline-flex items-center">
+            <input type="radio" name="openai_enabled" value="false" checked class="mr-1" />
+            <span>Disabled</span>
+          </label>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- API Key -->
+        <div class="mb-2">
+          <label for="openai_api_key" class="block mb-1 font-semibold flex items-center">
+            OpenAI API Key
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Get your key at platform.openai.com/api-keys">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          {% set api_key = config.get('openai_api_key', '') %}
+          {% if api_key and api_key|length > 8 %}
+            <input type="text" id="openai_api_key" name="openai_api_key" 
+              value="{{ api_key[:3] }}...{{ api_key[-4:] }}" 
+              data-actual-key="{{ api_key }}"
+              placeholder="Click to enter new API key"
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text font-mono text-sm" 
+              onfocus="this.value=''; this.type='password';" 
+              onblur="if(this.value===''){this.value=this.dataset.actualKey.substring(0,3)+'...'+this.dataset.actualKey.slice(-4); this.type='text';} else {this.dataset.actualKey=this.value;}" />
+            {% if config.get('openai_key_verified', False) %}
+            <div class="flex items-center mt-1 text-sm text-green-600 dark:text-green-400">
+              <i class="fas fa-check-circle mr-1"></i>
+              <span>API key verified</span>
+            </div>
+            {% endif %}
+          {% else %}
+            <input type="password" id="openai_api_key" name="openai_api_key" value="{{ api_key }}"
+              placeholder="sk-proj-..."
+              class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text font-mono text-sm" />
+          {% endif %}
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Get at <a href="https://platform.openai.com/api-keys" target="_blank" class="text-blue-500 hover:underline">platform.openai.com/api-keys</a></span>
+        </div>
+
+        <!-- Auto Process -->
+        <div class="mb-2">
+          <label for="openai_auto_process" class="block mb-1 font-semibold flex items-center">
+            Auto-process New Recordings
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Automatically process recordings when internet available">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <div class="flex items-center space-x-4 mt-2">
+            {% if config.get('openai_auto_process', True) %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_auto_process" value="true" checked class="mr-1" />
+              <span>Enabled</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_auto_process" value="false" class="mr-1" />
+              <span>Disabled</span>
+            </label>
+            {% else %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_auto_process" value="true" class="mr-1" />
+              <span>Enabled</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_auto_process" value="false" checked class="mr-1" />
+              <span>Disabled</span>
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Processing Cooldown -->
+        <div class="mb-2">
+          <label for="openai_processing_cooldown" class="block mb-1 flex items-center">
+            Processing Cooldown (seconds)
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Wait this many seconds after last recording before processing. 0 = immediate, 120 = 2 minutes (safer for Pi Zero).">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="openai_processing_cooldown" name="openai_processing_cooldown" value="{{ config.get('openai_processing_cooldown', 0) }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+
+        <!-- Allow During Call -->
+        <div class="mb-2">
+          <label for="openai_allow_processing_during_call" class="block mb-1 flex items-center">
+            Process During Calls
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Allow processing while phone in use. Disable if audio quality suffers on Pi Zero.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <div class="flex items-center space-x-4 mt-2">
+            {% if config.get('openai_allow_processing_during_call', False) %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_allow_processing_during_call" value="true" checked class="mr-1" />
+              <span>Yes</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_allow_processing_during_call" value="false" class="mr-1" />
+              <span>No (Safer)</span>
+            </label>
+            {% else %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_allow_processing_during_call" value="true" class="mr-1" />
+              <span>Yes</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_allow_processing_during_call" value="false" checked class="mr-1" />
+              <span>No (Safer)</span>
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Compress Audio -->
+        <div class="mb-2">
+          <label for="openai_compress_audio" class="block mb-1 flex items-center">
+            Compress Audio (WAV → MP3)
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Convert WAV to MP3 before upload. Saves 90% bandwidth.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <div class="flex items-center space-x-4 mt-2">
+            {% if config.get('openai_compress_audio', True) %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_compress_audio" value="true" checked class="mr-1" />
+              <span>Yes (Recommended)</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_compress_audio" value="false" class="mr-1" />
+              <span>No</span>
+            </label>
+            {% else %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_compress_audio" value="true" class="mr-1" />
+              <span>Yes (Recommended)</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_compress_audio" value="false" checked class="mr-1" />
+              <span>No</span>
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="mb-2">
+          <label for="openai_language" class="block mb-1 flex items-center">
+            Language Code
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Language code (en, es, fr, etc.) or 'auto' for automatic detection">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="text" id="openai_language" name="openai_language" value="{{ config.get('openai_language', 'en') }}"
+            placeholder="en"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+
+        <!-- GPT Model -->
+        <div class="mb-2">
+          <label for="openai_gpt_model" class="block mb-1 flex items-center">
+            GPT Model
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Model for metadata extraction. gpt-4o-mini is recommended for best cost/performance balance.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <select id="openai_gpt_model" name="openai_gpt_model" 
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text">
+            <option value="gpt-5-mini" {% if config.get('openai_gpt_model', 'gpt-5-mini') == 'gpt-5-mini' %}selected{% endif %}>
+              gpt-5-mini (Recommended - Best balance speed/cost/quality)
+            </option>
+            <option value="gpt-5-nano" {% if config.get('openai_gpt_model') == 'gpt-5-nano' %}selected{% endif %}>
+              gpt-5-nano (Fastest & Cheapest)
+            </option>
+            <option value="gpt-4o-mini" {% if config.get('openai_gpt_model') == 'gpt-4o-mini' %}selected{% endif %}>
+              gpt-4o-mini (Legacy - $0.15/$0.60 per 1M tokens)
+            </option>
+            <option value="gpt-4.1-mini" {% if config.get('openai_gpt_model') == 'gpt-4.1-mini' %}selected{% endif %}>
+              gpt-4.1-mini (Good for coding tasks)
+            </option>
+            <option value="gpt-5" {% if config.get('openai_gpt_model') == 'gpt-5' %}selected{% endif %}>
+              gpt-5 (Most powerful - requires registration)
+            </option>
+            <option value="gpt-4o" {% if config.get('openai_gpt_model') == 'gpt-4o' %}selected{% endif %}>
+              gpt-4o (Legacy higher quality)
+            </option>
+          </select>
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+            gpt-5-mini recommended for metadata extraction (Whisper handles transcription separately)
+          </span>
+        </div>
+
+        <!-- Convert to Mono -->
+        <div class="mb-2">
+          <label for="openai_convert_to_mono" class="block mb-1 flex items-center">
+            Convert to Mono
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Convert stereo to mono for speech. Saves 50% bandwidth.">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <div class="flex items-center space-x-4 mt-2">
+            {% if config.get('openai_convert_to_mono', True) %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_convert_to_mono" value="true" checked class="mr-1" />
+              <span>Yes</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_convert_to_mono" value="false" class="mr-1" />
+              <span>No</span>
+            </label>
+            {% else %}
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_convert_to_mono" value="true" class="mr-1" />
+              <span>Yes</span>
+            </label>
+            <label class="inline-flex items-center">
+              <input type="radio" name="openai_convert_to_mono" value="false" checked class="mr-1" />
+              <span>No</span>
+            </label>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Target Sample Rate -->
+        <div class="mb-2">
+          <label for="openai_target_sample_rate" class="block mb-1 flex items-center">
+            Target Sample Rate (Hz)
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Resample to this rate for compression (16000 = speech optimized)">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="openai_target_sample_rate" name="openai_target_sample_rate" value="{{ config.get('openai_target_sample_rate', 16000) }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+
+        <!-- Max Retries -->
+        <div class="mb-2">
+          <label for="openai_max_retries" class="block mb-1 flex items-center">
+            Max Retries
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Number of retries for failed API calls">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="openai_max_retries" name="openai_max_retries" value="{{ config.get('openai_max_retries', 3) }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+
+        <!-- Retry Delay -->
+        <div class="mb-2">
+          <label for="openai_retry_delay" class="block mb-1 flex items-center">
+            Retry Delay (seconds)
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Seconds to wait between retries">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          <input type="number" id="openai_retry_delay" name="openai_retry_delay" value="{{ config.get('openai_retry_delay', 30) }}"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        </div>
+
+        <!-- AI Categories -->
+        <div class="mb-2 md:col-span-2">
+          <label for="openai_categories" class="block mb-1 flex items-center font-semibold">
+            AI Categories
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Comma-separated list of emotional categories for AI to classify messages">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          {% set categories = config.get('openai_categories', ['joyful', 'heartfelt', 'humorous', 'nostalgic', 'advice', 'blessing', 'toast', 'gratitude', 'apology', 'other']) %}
+          <input type="text" id="openai_categories" name="openai_categories" value="{{ categories|join(', ') }}"
+            placeholder="joyful, heartfelt, humorous, nostalgic, advice, blessing, toast, gratitude, apology, other"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Categories the AI can use to classify messages (comma-separated)</span>
+        </div>
+
+        <!-- Ignored Names -->
+        <div class="mb-2 md:col-span-2">
+          <label for="openai_ignored_names" class="block mb-1 flex items-center font-semibold">
+            Ignored Names
+            <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help" title="Names to exclude from speaker detection (e.g. bride/groom names since everyone mentions them)">
+              <i class="fas fa-info-circle"></i>
+            </span>
+          </label>
+          {% set ignored_names = config.get('openai_ignored_names', []) %}
+          <input type="text" id="openai_ignored_names" name="openai_ignored_names" value="{{ ignored_names|join(', ') }}"
+            placeholder="Cam, Lara"
+            class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Names to exclude from speaker detection (comma-separated) - useful to filter bride/groom names</span>
+        </div>
+      </div>
+
+      <!-- Force Process Button -->
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+        <button type="button" id="forceProcessBtn" onclick="forceProcessAll()" 
+          class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 text-sm transition-colors">
+          <i class="fas fa-sync-alt mr-2"></i>Force Process All Unprocessed Recordings
+        </button>
+        <span class="text-xs text-gray-500 dark:text-gray-400 mt-2 block">Manually trigger AI processing for all pending recordings (requires internet)</span>
+        <div id="processStatus" class="mt-2 hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- End Advanced Settings -->
+
   <!-- Floating Save Button -->
   <div class="bg-primary dark:bg-dark-primary fixed bottom-4 right-4 rounded-full">
     <button type="submit" class="btn-primary p-3 shadow-lg rounded-full">
@@ -475,7 +898,9 @@
   </div>
 </form>
 
-{% endblock %} {% block extra_js %}
+{% endblock %}
+
+{% block extra_js %}
 <script>
   // Global audio player for preview
   let currentAudio = null;
@@ -543,20 +968,151 @@
     }
   }
 
-  // File upload feedback
-  document.querySelectorAll('input[type="file"]').forEach((input) => {
-    input.addEventListener("change", function () {
-      const filename = this.files[0]?.name;
-      if (filename) {
-        // Show filename in adjacent name input if empty
-        const nameInput = this.parentElement.querySelector('input[type="text"]');
-        if (nameInput && !nameInput.value) {
-          // Use filename without extension as suggested name
-          const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
-          nameInput.value = baseName;
+  // Force process all unprocessed recordings
+  function forceProcessAll() {
+    const button = document.getElementById('forceProcessBtn');
+    const statusDiv = document.getElementById('processStatus');
+    
+    // Disable button and show status
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+    statusDiv.className = 'mt-2 p-3 bg-blue-100 dark:bg-blue-900/20 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300';
+    statusDiv.textContent = 'Processing unprocessed recordings... This may take a few minutes.';
+    statusDiv.classList.remove('hidden');
+    
+    fetch('/api/process-pending', {
+      method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+      // Re-enable button
+      button.disabled = false;
+      button.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Force Process All Unprocessed Recordings';
+      
+      if (data.success) {
+        statusDiv.className = 'mt-2 p-3 bg-green-100 dark:bg-green-900/20 border-l-4 border-green-500 text-green-700 dark:text-green-300';
+        statusDiv.textContent = data.message;
+      } else {
+        statusDiv.className = 'mt-2 p-3 bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300';
+        statusDiv.textContent = 'Error: ' + data.message;
+      }
+      
+      // Hide status after 5 seconds
+      setTimeout(() => {
+        statusDiv.classList.add('hidden');
+      }, 5000);
+    })
+    .catch(err => {
+      button.disabled = false;
+      button.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Force Process All Unprocessed Recordings';
+      statusDiv.className = 'mt-2 p-3 bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300';
+      statusDiv.textContent = 'Failed to process recordings: ' + err.message;
+      statusDiv.classList.remove('hidden');
+    });
+  }
+
+  // Advanced mode toggle (must be global for onclick handler)
+  function toggleAdvancedMode() {
+    const advancedSettings = document.getElementById('advancedSettings');
+    const toggleText = document.getElementById('advancedModeText');
+    const toggleButton = document.getElementById('advancedModeToggle');
+    
+    if (advancedSettings.style.display === 'none') {
+      advancedSettings.style.display = 'block';
+      toggleText.textContent = 'Hide Advanced Settings';
+      toggleButton.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+      toggleButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+      localStorage.setItem('advancedMode', 'shown');
+    } else {
+      advancedSettings.style.display = 'none';
+      toggleText.textContent = 'Show Advanced Settings';
+      toggleButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+      toggleButton.classList.add('bg-gray-500', 'hover:bg-gray-600');
+      localStorage.setItem('advancedMode', 'hidden');
+    }
+  }
+
+  // Fix API key masking issue on form submit
+  document.getElementById('form-id').addEventListener('submit', function(e) {
+    const apiKeyInput = document.getElementById('openai_api_key');
+    if (apiKeyInput && apiKeyInput.dataset.actualKey) {
+      // If value is still the masked version or empty, restore the actual key
+      if (apiKeyInput.value === '' || apiKeyInput.value.includes('...')) {
+        apiKeyInput.value = apiKeyInput.dataset.actualKey;
+      }
+    }
+  });
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // File upload feedback
+    document.querySelectorAll('input[type="file"]').forEach((input) => {
+      input.addEventListener("change", function () {
+        const filename = this.files[0]?.name;
+        if (filename) {
+          // Show filename in adjacent name input if empty
+          const nameInput = this.parentElement.querySelector('input[type="text"]');
+          if (nameInput && !nameInput.value) {
+            // Use filename without extension as suggested name
+            const baseName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+            nameInput.value = baseName;
+          }
         }
+      });
+    });
+    
+    // Restore advanced mode state
+    const advancedMode = localStorage.getItem('advancedMode');
+    if (advancedMode === 'shown') {
+      toggleAdvancedMode();
+    }
+    
+    // Initialize tooltips
+    initTooltips();
+  });
+
+  // Tooltip functionality for mobile and desktop
+  function initTooltips() {
+    // Convert title attributes to tooltip bubbles
+    document.querySelectorAll('[title]').forEach(element => {
+      const titleText = element.getAttribute('title');
+      if (titleText && element.querySelector('i.fa-info-circle')) {
+        // Remove title to prevent default browser tooltip
+        element.removeAttribute('title');
+        
+        // Add tooltip trigger class
+        element.classList.add('tooltip-trigger');
+        
+        // Create tooltip bubble
+        const bubble = document.createElement('div');
+        bubble.className = 'tooltip-bubble';
+        bubble.textContent = titleText;
+        element.appendChild(bubble);
+        
+        // Handle mobile tap
+        element.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Close other tooltips
+          document.querySelectorAll('.tooltip-trigger.active').forEach(t => {
+            if (t !== element) t.classList.remove('active');
+          });
+          
+          // Toggle this tooltip
+          element.classList.toggle('active');
+        });
       }
     });
-  });
+    
+    // Close tooltips when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.tooltip-trigger')) {
+        document.querySelectorAll('.tooltip-trigger.active').forEach(t => {
+          t.classList.remove('active');
+        });
+      }
+    });
+  }
 </script>
 {% endblock %}

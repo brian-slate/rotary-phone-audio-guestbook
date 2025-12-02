@@ -15,12 +15,16 @@ class AudioProcessor:
         self.enabled = config.get('openai_enabled', False)
         self.gpt_model = config.get('openai_gpt_model', 'gpt-4o-mini')
         self.language = config.get('openai_language', 'en')
-        self.min_duration = config.get('openai_min_duration', 5)
         self.compress_audio = config.get('openai_compress_audio', True)
         self.convert_to_mono = config.get('openai_convert_to_mono', True)
         self.target_sample_rate = config.get('openai_target_sample_rate', 16000)
         self.max_retries = config.get('openai_max_retries', 3)
         self.retry_delay = config.get('openai_retry_delay', 30)
+        self.ignored_names = config.get('openai_ignored_names', [])
+        self.categories = config.get('openai_categories', [
+            "joyful", "heartfelt", "humorous", "nostalgic", "advice", 
+            "blessing", "toast", "gratitude", "apology", "other"
+        ])
         
         if self.enabled:
             try:
@@ -168,10 +172,22 @@ class AudioProcessor:
     
     def _extract_metadata_with_gpt(self, transcription: str) -> dict:
         """Use GPT-4o Mini to extract metadata from transcription."""
+        ignored_names_note = ""
+        examples_note = ""
+        if self.ignored_names:
+            ignored_names_list = ', '.join(self.ignored_names)
+            ignored_names_note = f"\n\n   ⚠️  CRITICAL: NEVER include these names in the 'names' array: {ignored_names_list}"
+            ignored_names_note += f"\n   These are the wedding couple/event hosts, NOT the guests leaving messages."
+            ignored_names_note += f"\n   Example: If message says 'Hi Cam and Lara, this is Mike', only extract 'Mike'"
+            ignored_names_note += f"\n   Example: If message says 'Cam, wishing you happiness', extract NO names (empty array)"
+        
+        categories_str = ", ".join(self.categories)
         prompt = f"""Analyze this wedding/event guestbook message and extract:
 
-1. Speaker names mentioned (first names only, if identifiable)
-2. Emotional category (choose one: joyful, heartfelt, humorous, nostalgic, advice, blessing, toast, gratitude, apology, other)
+1. Speaker names mentioned (full first and last names if available, otherwise just first names)
+   - ONLY include people who are SPEAKING, CALLING, or introducing themselves as guests
+   - Do NOT include recipients, hosts, or people being addressed{ignored_names_note}
+2. Emotional category (choose one: {categories_str})
 3. A brief 4-7 word title summarizing the message
 4. Confidence score (0.0-1.0) based on clarity
 
@@ -180,7 +196,7 @@ Transcription:
 
 Respond ONLY with valid JSON in this exact format:
 {{
-  "names": ["Name1", "Name2"],
+  "names": ["John Smith", "Jane Doe"],
   "category": "joyful",
   "summary": "Brief message title here",
   "confidence": 0.95
@@ -189,11 +205,38 @@ Respond ONLY with valid JSON in this exact format:
         response = self.client.chat.completions.create(
             model=self.gpt_model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=200,
+            max_completion_tokens=200,
             response_format={"type": "json_object"}
         )
         
         content = response.choices[0].message.content
-        metadata = json.loads(content)
+        if not content or content.strip() == "":
+            logger.error(f"Empty response from GPT model {self.gpt_model}")
+            logger.error(f"Full response: {response}")
+            raise ValueError("GPT returned empty content")
+        
+        try:
+            metadata = json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse GPT response as JSON: {content[:500]}")
+            raise
+        
+        # Post-process: Filter out ignored names (case-insensitive)
+        if self.ignored_names and 'names' in metadata:
+            ignored_lower = [name.lower() for name in self.ignored_names]
+            original_names = metadata['names']
+            
+            # Filter out any name that matches ignored names (case-insensitive, partial match)
+            filtered_names = []
+            for name in original_names:
+                name_lower = name.lower()
+                # Check if any ignored name appears in this name
+                if not any(ignored in name_lower for ignored in ignored_lower):
+                    filtered_names.append(name)
+            
+            if len(filtered_names) != len(original_names):
+                logger.info(f"Filtered names: {original_names} → {filtered_names} (removed ignored names)")
+            
+            metadata['names'] = filtered_names
+        
         return metadata

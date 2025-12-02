@@ -84,6 +84,14 @@ psutil==7.0.0
     # via rotary-phone-audio-guestbook (pyproject.toml)
 pycparser==2.22
     # via cffi
+pyyaml==6.0.2
+    # via rotary-phone-audio-guestbook (audioGuestBook.py)
+rpi-gpio==0.7.1
+    # via rotary-phone-audio-guestbook (audioGuestBook.py - Raspberry Pi GPIO)
+adafruit-circuitpython-neopixel==6.3.11
+    # via rotary-phone-audio-guestbook (audioGuestBook.py - LED strip control)
+adafruit-blinka==8.47.0
+    # via adafruit-circuitpython-neopixel (provides board module)
 ruamel-yaml==0.18.6
     # via rotary-phone-audio-guestbook (pyproject.toml)
 ruamel-yaml-clib==0.2.8

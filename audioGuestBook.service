@@ -4,12 +4,14 @@ After=multi-user.target bootLed.service
 Wants=bootLed.service
 
 [Service]
+User=root
+Group=root
 WorkingDirectory=/home/admin/rotary-phone-audio-guestbook
 Type=simple
 Restart=always
 ExecStartPre=/bin/sleep 3
-ExecStartPre=-/bin/systemctl stop bootLed.service
-ExecStart=/usr/bin/python3 src/audioGuestBook.py
+ExecStartPre=/bin/systemctl stop bootLed.service
+ExecStart=/home/admin/rotary-phone-audio-guestbook/.venv/bin/python3 src/audioGuestBook.py
 
 [Install]
 WantedBy=multi-user.target

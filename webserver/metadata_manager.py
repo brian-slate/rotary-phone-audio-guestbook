@@ -173,3 +173,14 @@ class MetadataManager:
                         unprocessed.append(rec)
             
             return unprocessed
+    
+    def remove_recording(self, filename: str):
+        """Remove metadata entry for a deleted recording."""
+        with self.lock:
+            data = self._read_metadata()
+            if filename in data["recordings"]:
+                del data["recordings"][filename]
+                self._write_metadata(data)
+                logger.info(f"Removed metadata for deleted recording: {filename}")
+            else:
+                logger.warning(f"Attempted to remove metadata for non-existent entry: {filename}")

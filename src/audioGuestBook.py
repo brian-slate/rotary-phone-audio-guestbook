@@ -66,6 +66,7 @@ class AudioGuestBook:
     LED_PIN = board.D18 if LED_AVAILABLE else None  # GPIO 18 (PWM)
     LED_BRIGHTNESS = 0.8     # Default brightness (0.0 to 1.0)
     LED_STATUS_INDEX = 6     # 7th LED (0-indexed) for status indicator
+    LED_AI_INDICATOR_INDEX = 4  # 5th LED (0-indexed) for AI processing indicator
 
     def __init__(self, config_path):
         """
@@ -110,6 +111,10 @@ class AudioGuestBook:
         self.led_animation_running = False
         self.led_animation_thread = None
         
+        # AI processing indicator control
+        self.ai_indicator_running = False
+        self.ai_indicator_thread = None
+        
         # Hook toggle tracking for record greeting mode
         self.hook_toggle_times = []
         self.pending_greeting_record = False
@@ -143,6 +148,8 @@ class AudioGuestBook:
                 is_phone_active,
                 self.config
             )
+            # Register callback for AI processing state changes
+            self.processing_queue.processing_callback = self.on_ai_processing_state_changed
             self.processing_queue.start()
             logger.info("AI processing queue initialized and started")
         except Exception as e:
@@ -418,9 +425,99 @@ class AudioGuestBook:
             return
         
         self.led_animation_running = False
+        self.ai_indicator_running = False
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
         logger.info("LEDs turned off")
+    
+    def on_ai_processing_state_changed(self, is_processing: bool):
+        """
+        Callback invoked when AI processing starts or stops.
+        Only shows indicator when phone is in ready state.
+        """
+        # Only show AI indicator when phone is idle (ready state)
+        if self.current_event != CurrentEvent.NONE:
+            return
+        
+        if is_processing:
+            self.led_start_ai_indicator()
+        else:
+            self.led_stop_ai_indicator()
+    
+    def led_start_ai_indicator(self):
+        """
+        Start purple pulsing animation on LED 5 (index 4) to indicate AI processing.
+        Keeps green ready LED (LED 6) lit.
+        """
+        if self.pixels is None:
+            return
+        
+        if not self.ai_indicator_running:
+            self.ai_indicator_running = True
+            self.ai_indicator_thread = threading.Thread(
+                target=self._led_ai_indicator_loop,
+                daemon=True
+            )
+            self.ai_indicator_thread.start()
+            logger.info("Started AI processing indicator (purple pulse on LED 5 / index 4)")
+    
+    def led_stop_ai_indicator(self):
+        """
+        Stop AI indicator animation and return LED 5 to off.
+        Keeps green ready LED (LED 6) lit.
+        """
+        if self.pixels is None:
+            return
+        
+        self.ai_indicator_running = False
+        
+        if self.ai_indicator_thread is not None:
+            self.ai_indicator_thread.join(timeout=1.0)
+            self.ai_indicator_thread = None
+        
+        # Turn off AI indicator LED
+        self.pixels[self.LED_AI_INDICATOR_INDEX] = (0, 0, 0)
+        # Keep ready LED green
+        self.pixels[self.LED_STATUS_INDEX] = (0, 77, 0)
+        self.pixels.show()
+        logger.info("Stopped AI processing indicator")
+    
+    def _led_ai_indicator_loop(self):
+        """
+        Fast purple pulsing animation on LED 5 (index 4).
+        Pulses from completely off to 30% brightness (matching ready LED level).
+        """
+        if self.pixels is None:
+            return
+        
+        pulse_value = 0   # Start completely off
+        direction = 1     # 1 = brightening, -1 = dimming
+        max_brightness = 77  # Match the ready LED brightness (30% of 255)
+        
+        while self.ai_indicator_running:
+            # Fast pulsing between 0-77 (off to 30% brightness, matching ready LED)
+            pulse_value += direction * 3  # Adjusted for smaller range
+            
+            if pulse_value >= max_brightness:
+                pulse_value = max_brightness
+                direction = -1
+            elif pulse_value <= 0:
+                pulse_value = 0
+                direction = 1
+            
+            # Purple color (more blue, some red, no green)
+            brightness_factor = pulse_value / 255
+            r = int(128 * brightness_factor)  # Medium red
+            g = 0                              # No green
+            b = int(255 * brightness_factor)  # Full blue
+            
+            # Update LED 5 (index 4) with purple
+            self.pixels[self.LED_AI_INDICATOR_INDEX] = (r, g, b)
+            # Keep LED 6 green (ready state)
+            self.pixels[self.LED_STATUS_INDEX] = (0, 77, 0)
+            self.pixels.show()
+            
+            time.sleep(0.02)  # ~50fps, faster pulse (was 0.04)
 
     def setup_hook(self):
         """
