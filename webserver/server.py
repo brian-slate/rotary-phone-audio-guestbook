@@ -347,10 +347,17 @@ def process_pending_recordings():
         unprocessed = metadata_mgr.get_unprocessed_recordings()
         total_count = len(unprocessed)
         
-        # No restart needed - queue scans for pending recordings every 3 seconds
+        # Trigger immediate processing by touching signal file
+        try:
+            trigger_file = recordings_path / '.force_process_trigger'
+            trigger_file.touch()
+            logger.info("Created force process trigger file")
+        except Exception as e:
+            logger.warning(f"Could not create trigger file: {e}")
+        
         message = f'Reset {reset_count} recording(s) to pending. '
         if total_count > 0:
-            message += f'{total_count} recording(s) will be processed when phone is idle (within a few seconds).'
+            message += f'{total_count} recording(s) will be processed when phone is idle.'
         else:
             message += 'No recordings to process.'
         

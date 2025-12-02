@@ -133,16 +133,29 @@ class ProcessingQueue:
         """Background worker - processes queue only when phone is idle."""
         last_scan_time = 0
         has_pending = False  # Track if we found pending recordings last scan
+        signal_file = Path(self.config['recordings_path']) / '.force_process_trigger'
+        last_signal_check = 0
         
         while self.running:
             task_retrieved = False
             try:
+                # Check for force process trigger file (immediate response)
+                current_time = time.time()
+                if signal_file.exists():
+                    try:
+                        signal_file.unlink()  # Remove trigger immediately
+                        logger.info("Force process trigger detected, scanning for pending recordings")
+                        self._scan_and_enqueue_pending()
+                        last_scan_time = current_time
+                        has_pending = True
+                    except Exception as e:
+                        logger.error(f"Error processing trigger file: {e}")
+                
                 # Dynamically adjust scan interval based on whether we have pending work
-                # Scan every 3s when pending, every 30s when idle
-                scan_interval = 3 if has_pending else 30
+                # Scan every 10s when pending, every 60s when idle (reduced overhead since we have trigger)
+                scan_interval = 10 if has_pending else 60
                 
                 # Periodically scan for pending recordings that aren't in queue
-                current_time = time.time()
                 if current_time - last_scan_time > scan_interval:
                     unprocessed = self.metadata_manager.get_unprocessed_recordings()
                     has_pending = len(unprocessed) > 0
