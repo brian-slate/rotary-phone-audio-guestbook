@@ -94,6 +94,9 @@ function loadRecordings() {
       } catch (err) {
         console.error("Error initializing audio players:", err);
       }
+      
+      // Check for processing recordings and start polling if needed
+      checkForProcessingRecordings();
     })
     .catch((error) => {
       console.error("Error loading recordings:", error);
@@ -159,7 +162,11 @@ function improveAudioDurationDetection() {
   });
 }
 
-function createRecordingItem(filename) {
+function createRecordingItem(recording) {
+  // Handle both old format (string) and new format (object)
+  const filename = typeof recording === 'string' ? recording : recording.filename;
+  const metadata = typeof recording === 'object' ? recording : {};
+  
   const row = document.createElement("tr");
   row.className =
     "recording-item border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-200";
@@ -170,6 +177,46 @@ function createRecordingItem(filename) {
   // Generate a random pastel color for the recording icon
   const hue = Math.floor(Math.random() * 360);
   const iconColor = `hsl(${hue}, 70%, 80%)`;
+  
+  // Use AI-generated title or filename
+  const displayTitle = metadata.title || filename;
+  const isProcessed = metadata.processing_status === 'completed';
+  const isProcessing = metadata.processing_status === 'processing';
+  const isPending = metadata.processing_status === 'pending';
+  
+  // Processing status indicator
+  let statusIndicator = '';
+  if (isProcessing) {
+    statusIndicator = '<i class="fas fa-spinner fa-spin ml-2 text-blue-500" title="Processing..."></i>';
+  } else if (isPending) {
+    statusIndicator = '<i class="fas fa-clock ml-2 text-gray-400" title="Pending processing"></i>';
+  } else if (isProcessed) {
+    statusIndicator = '<i class="fas fa-check-circle ml-2 text-green-500" title="Processed"></i>';
+  }
+  
+  // Format speaker names
+  const speakerDisplay = metadata.speaker_names && metadata.speaker_names.length > 0
+    ? metadata.speaker_names.join(', ')
+    : '-';
+  
+  // Category badge with color coding
+  const categoryColors = {
+    joyful: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    heartfelt: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    humorous: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    nostalgic: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    advice: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    blessing: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+    toast: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+    gratitude: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
+    apology: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    other: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+  };
+  
+  const categoryClass = categoryColors[metadata.category] || 'bg-gray-100 text-gray-800';
+  const categoryBadge = metadata.category
+    ? `<span class="px-2 py-1 rounded text-xs font-semibold ${categoryClass}">${metadata.category}</span>`
+    : '-';
 
   row.innerHTML = `
       <td class="p-2 text-center"><input type="checkbox" class="recording-checkbox w-4 h-4" data-id="${filename}"></td>
@@ -178,9 +225,18 @@ function createRecordingItem(filename) {
           <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3" style="background-color: ${iconColor}">
             <i class="fas fa-microphone text-white"></i>
           </div>
-          <span contenteditable="true" class="recording-name font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 p-1 rounded">${filename}</span>
+          <div>
+            <span class="recording-name font-semibold cursor-pointer hover:text-blue-600"
+                  data-filename="${filename}"
+                  title="${metadata.transcription ? 'Click to view transcription' : filename}">
+              ${displayTitle}
+            </span>
+            ${statusIndicator}
+          </div>
         </div>
       </td>
+      <td class="p-2 text-sm text-gray-700 dark:text-gray-300">${speakerDisplay}</td>
+      <td class="p-2">${categoryBadge}</td>
       <td class="p-2">
         <audio class="audio-player" src="/recordings/${filename}"></audio>
       </td>
@@ -191,8 +247,18 @@ function createRecordingItem(filename) {
         </button>
       </td>
     `;
+  
+  // Add click handler to show transcription modal
+  const nameSpan = row.querySelector('.recording-name');
+  nameSpan.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (metadata.transcription) {
+      showTranscriptionModal(filename, metadata);
+    }
+  });
 
   row.dataset.filename = filename;
+  row.dataset.status = metadata.processing_status || '';
   return row;
 }
 
@@ -387,6 +453,83 @@ function updateSelectAllCheckbox() {
 
 function isMobileDevice() {
   return /Mobi|Android/i.test(navigator.userAgent);
+}
+
+function showTranscriptionModal(filename, recording) {
+  if (!recording.transcription) {
+    alert('Transcription not available for this recording.');
+    return;
+  }
+  
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+  modal.innerHTML = `
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Transcription</h2>
+        <button class="close-modal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      
+      <div class="mb-4 space-y-2">
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          <strong>File:</strong> ${filename}
+        </p>
+        ${recording.speaker_names && recording.speaker_names.length > 0 ? `
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            <strong>Speakers:</strong> ${recording.speaker_names.join(', ')}
+          </p>
+        ` : ''}
+        ${recording.category ? `
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            <strong>Category:</strong> ${recording.category}
+          </p>
+        ` : ''}
+        ${recording.confidence ? `
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            <strong>Confidence:</strong> ${(recording.confidence * 100).toFixed(0)}%
+          </p>
+        ` : ''}
+      </div>
+      
+      <div class="bg-gray-100 dark:bg-gray-700 rounded p-4">
+        <p class="text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed">
+          ${recording.transcription}
+        </p>
+      </div>
+    </div>
+  `;
+  
+  // Close on background click or X button
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal || e.target.closest('.close-modal')) {
+      document.body.removeChild(modal);
+    }
+  });
+  
+  document.body.appendChild(modal);
+}
+
+// Poll for updates when recordings are processing
+let refreshInterval = null;
+
+function checkForProcessingRecordings() {
+  const processingItems = document.querySelectorAll('[data-status="processing"],[data-status="pending"]');
+  
+  if (processingItems.length > 0 && !refreshInterval) {
+    // Start polling every 10 seconds
+    refreshInterval = setInterval(() => {
+      console.log('Refreshing recordings (processing in progress)...');
+      loadRecordings();
+    }, 10000);
+  } else if (processingItems.length === 0 && refreshInterval) {
+    // Stop polling when nothing is processing
+    clearInterval(refreshInterval);
+    refreshInterval = null;
+    console.log('All recordings processed, stopped polling');
+  }
 }
 
 // Initialize recordings on page load

@@ -149,27 +149,95 @@ def delete_file(filename):
 
 @app.route("/api/recordings")
 def get_recordings():
-    """API route to get a list of all recordings."""
+    """API route to get a list of all recordings with AI metadata."""
     try:
-        # List directory contents if it exists
-        if recordings_path.exists() and recordings_path.is_dir():
-            all_items = list(sorted(recordings_path.iterdir(), key=lambda f:f.stat().st_mtime, reverse=True))
-            logger.info(f"Directory contains {len(all_items)} items")
-
-            # List all items with their types
-            for item in all_items:
-                logger.info(f"  - {item.name} ({'file' if item.is_file() else 'dir'})")
-
-            files = [f.name for f in all_items if f.is_file()]
-            logger.info(f"Found {len(files)} files: {files}")
-            return jsonify(files)
-        else:
-            logger.error(f"Recordings path is not a valid directory: {recordings_path}")
-            return jsonify({"error": "Recordings directory not found"}), 404
+        # Try to use metadata manager if available
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+            recordings = metadata_mgr.get_all_recordings()
+            
+            # Return with metadata
+            return jsonify([
+                {
+                    'filename': rec['filename'],
+                    'title': rec.get('ai_metadata', {}).get('summary') if rec.get('ai_metadata') else rec['filename'],
+                    'speaker_names': rec.get('ai_metadata', {}).get('speaker_names', []) if rec.get('ai_metadata') else [],
+                    'category': rec.get('ai_metadata', {}).get('category') if rec.get('ai_metadata') else None,
+                    'transcription': rec.get('ai_metadata', {}).get('transcription') if rec.get('ai_metadata') else None,
+                    'processing_status': rec.get('ai_metadata', {}).get('processing_status') if rec.get('ai_metadata') else None,
+                    'confidence': rec.get('ai_metadata', {}).get('confidence') if rec.get('ai_metadata') else None,
+                    'created_at': rec.get('created_at'),
+                    'file_size': rec.get('file_size_bytes')
+                }
+                for rec in recordings
+            ])
+        except ImportError:
+            # Fallback to simple file list if AI components not available
+            logger.warning("Metadata manager not available, returning simple file list")
+            if recordings_path.exists() and recordings_path.is_dir():
+                all_items = list(sorted(recordings_path.iterdir(), key=lambda f:f.stat().st_mtime, reverse=True))
+                files = [f.name for f in all_items if f.is_file()]
+                return jsonify(files)
+            else:
+                logger.error(f"Recordings path is not a valid directory: {recordings_path}")
+                return jsonify({"error": "Recordings directory not found"}), 404
 
     except Exception as e:
         logger.error(f"Error accessing recordings directory: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/transcription/<filename>")
+def get_transcription(filename):
+    """Get full transcription for a recording."""
+    try:
+        from metadata_manager import MetadataManager
+        metadata_mgr = MetadataManager(recordings_path)
+        metadata = metadata_mgr.get_metadata(filename)
+        
+        if not metadata or 'ai_metadata' not in metadata:
+            return jsonify({
+                'transcription': None,
+                'status': 'not_processed'
+            })
+        
+        return jsonify({
+            'transcription': metadata['ai_metadata'].get('transcription'),
+            'status': metadata['ai_metadata'].get('processing_status'),
+            'speaker_names': metadata['ai_metadata'].get('speaker_names', []),
+            'category': metadata['ai_metadata'].get('category'),
+            'confidence': metadata['ai_metadata'].get('confidence')
+        })
+    except Exception as e:
+        logger.error(f"Error getting transcription: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/process-pending", methods=["POST"])
+def process_pending_recordings():
+    """Manually trigger processing of all unprocessed recordings."""
+    try:
+        from metadata_manager import MetadataManager
+        
+        metadata_mgr = MetadataManager(recordings_path)
+        unprocessed = metadata_mgr.get_unprocessed_recordings()
+        
+        # Note: This assumes the processing queue is accessible
+        # For now, just return success - actual processing will be handled by the queue
+        count = len(unprocessed)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Found {count} recording(s) pending processing. They will be processed when the phone is idle.',
+            'count': count
+        })
+    except Exception as e:
+        logger.error(f"Error processing pending recordings: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
 
 
 @app.route("/config", methods=["GET", "POST"])

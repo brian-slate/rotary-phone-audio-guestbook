@@ -24,6 +24,19 @@ except ImportError:
 
 from audioInterface import AudioInterface
 
+# Import AI processing components (lazy import to avoid errors if not installed)
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "webserver"))
+    from job_queue import ProcessingQueue
+    from openai_processor import AudioProcessor
+    from metadata_manager import MetadataManager
+    from connectivity_checker import ConnectivityChecker
+    AI_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"AI processing components not available: {e}")
+    AI_AVAILABLE = False
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -102,7 +115,39 @@ class AudioGuestBook:
         self.pending_greeting_record = False
         self.greeting_recording_file = None
         self.greeting_recording_started = False  # Track if recording actually started
+        
+        # Initialize AI components if available
+        self.setup_ai_processing()
 
+    def setup_ai_processing(self):
+        """Initialize AI processing components."""
+        if not AI_AVAILABLE:
+            logger.info("AI processing components not available, skipping AI setup")
+            return
+        
+        try:
+            # Initialize AI components
+            self.metadata_manager = MetadataManager(self.config['recordings_path'])
+            self.connectivity_checker = ConnectivityChecker()
+            self.audio_processor = AudioProcessor(self.config)
+            
+            # Create phone state checker function
+            def is_phone_active():
+                return self.current_event != CurrentEvent.NONE
+            
+            # Initialize processing queue with idle-time check
+            self.processing_queue = ProcessingQueue(
+                self.audio_processor,
+                self.metadata_manager,
+                self.connectivity_checker,
+                is_phone_active,
+                self.config
+            )
+            self.processing_queue.start()
+            logger.info("AI processing queue initialized and started")
+        except Exception as e:
+            logger.error(f"Failed to initialize AI processing: {e}")
+    
     def load_config(self):
         """
         Loads the application configuration from a YAML file.
@@ -510,7 +555,7 @@ class AudioGuestBook:
         """
         Starts the audio recording process and sets a timer for time exceeded event.
         """
-
+        self.current_recording_path = output_file  # Store for AI processing later
         self.audio_interface.start_recording(output_file)
         logger.info("Recording started...")
 
@@ -576,6 +621,24 @@ class AudioGuestBook:
             logger.info("Phone on hook. Ending call and saving recording.")
             # Stop any ongoing processes before resetting the state
             self.stop_recording_and_playback()
+            
+            # Queue for AI processing if we have a recording path
+            if AI_AVAILABLE and hasattr(self, 'current_recording_path') and hasattr(self, 'processing_queue'):
+                file_path = Path(self.current_recording_path)
+                
+                if file_path.exists():
+                    # Initialize metadata entry
+                    self.metadata_manager.initialize_recording(
+                        file_path.name,
+                        file_path.stat().st_size
+                    )
+                    
+                    # Queue for AI processing (will process when idle)
+                    self.processing_queue.enqueue(
+                        str(file_path),
+                        file_path.name
+                    )
+                    logger.info(f"Queued {file_path.name} for AI processing")
 
             # Stop LED animation and return to ready state
             self.led_stop_animation()
@@ -848,6 +911,10 @@ class AudioGuestBook:
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         finally:
+            # Stop processing queue
+            if AI_AVAILABLE and hasattr(self, 'processing_queue'):
+                self.processing_queue.stop()
+            # Cleanup LEDs
             self.led_cleanup()
 
 
