@@ -31,16 +31,20 @@
           <a href="{{ url_for('index') }}"
             class="group flex flex-col items-center hover:text-accent transition-colors duration-200"
             title="Recordings">
-            <img id="home-icon" src="{{ url_for('static', filename='img/home_light.png') }}" alt="Recordings"
-              class="w-6 h-6 mb-1">
+            <div class="w-6 h-6 flex items-center justify-center mb-1">
+              <img id="home-icon" src="{{ url_for('static', filename='img/home_light.png') }}" alt="Recordings"
+                class="w-full h-full object-contain">
+            </div>
             <span class="text-xs hidden sm:block">Recordings</span>
           </a>
 
           <!-- Settings Icon -->
           <a href="{{ url_for('edit_config') }}"
             class="group flex flex-col items-center hover:text-accent transition-colors duration-200" title="Settings">
-            <img id="settings-icon" src="{{ url_for('static', filename='img/gear_light.png') }}" alt="Settings"
-              class="w-6 h-6 mb-1">
+            <div class="w-6 h-6 flex items-center justify-center mb-1">
+              <img id="settings-icon" src="{{ url_for('static', filename='img/gear_light.png') }}" alt="Settings"
+                class="w-full h-full object-contain">
+            </div>
             <span class="text-xs hidden sm:block">Settings</span>
           </a>
 

@@ -180,6 +180,9 @@ def edit_config():
         for key, value in request.form.items():
             logger.info(f"  {key}: {value}")
         try:
+            # Track which fields had file uploads
+            uploaded_fields = []
+            
             # Handle file uploads
             for field in ["greeting", "beep", "time_exceeded"]:
                 if f"{field}_file" in request.files:
@@ -237,8 +240,9 @@ def edit_config():
                         # Update config to point to new file
                         config[field] = normalize_path(final_path.relative_to(BASE_DIR))
                         logger.info(f"Updated config[{field}] to: {config[field]}")
+                        uploaded_fields.append(field)
 
-            update_config(request.form)
+            update_config(request.form, skip_fields=uploaded_fields)
 
             with config_path.open("w") as f:
                 yaml.dump(config, f)
@@ -582,11 +586,19 @@ def shutdown():
         ), 500
 
 
-def update_config(form_data):
+def update_config(form_data, skip_fields=None):
     """Update the YAML configuration with form data."""
+    if skip_fields is None:
+        skip_fields = []
+    
     for key, value in form_data.items():
         # Skip CSRF token if it exists
         if key == 'csrf_token':
+            continue
+        
+        # Skip fields that had file uploads (already updated)
+        if key in skip_fields:
+            logger.info(f"Skipping '{key}' - file was uploaded")
             continue
 
         # Check if key exists in config
