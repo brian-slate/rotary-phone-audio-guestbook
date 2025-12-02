@@ -205,14 +205,21 @@ Respond ONLY with valid JSON in this exact format:
         response = self.client.chat.completions.create(
             model=self.gpt_model,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=400,  # Increased for gpt-5-mini compatibility
+            max_completion_tokens=600,  # Enough for long transcripts (5 min messages)
             response_format={"type": "json_object"}
         )
+        
+        # Check if response was cut off due to token limit
+        finish_reason = response.choices[0].finish_reason
+        if finish_reason == "length":
+            logger.error(f"GPT response hit token limit (max_completion_tokens=600)")
+            logger.error(f"Model: {self.gpt_model}, Tokens used: {response.usage}")
+            raise ValueError("GPT response exceeded token limit - message may be too long")
         
         content = response.choices[0].message.content
         if not content or content.strip() == "":
             logger.error(f"Empty response from GPT model {self.gpt_model}")
-            logger.error(f"Full response: {response}")
+            logger.error(f"Finish reason: {finish_reason}, Full response: {response}")
             raise ValueError("GPT returned empty content")
         
         try:
