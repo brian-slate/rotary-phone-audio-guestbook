@@ -248,11 +248,21 @@ function createRecordingItem(recording) {
     : '';
 
   const mobileControls = `
-      <div class=\"sm:hidden mt-2 flex items-center gap-3\">
-        <button class=\"mobile-play bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm\" title=\"Play/Pause\">
-          <i class=\"fas fa-play text-sm\"></i>
-        </button>
-        <span class=\"mobile-duration text-xs text-gray-600 dark:text-gray-400\"></span>
+      <div class=\"sm:hidden mt-2 flex items-center justify-between\">
+        <div class=\"flex items-center gap-3\">
+          <button class=\"mobile-play bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm\" title=\"Play/Pause\">
+            <i class=\"fas fa-play text-sm\"></i>
+          </button>
+          <span class=\"mobile-duration text-xs text-gray-600 dark:text-gray-400\"></span>
+        </div>
+        <div class=\"flex items-center gap-2\">
+          ${metadata.transcription ? `<button class=\"mobile-transcript-button bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm\" title=\"View transcription\">
+            <i class=\"fas fa-file-alt text-sm\"></i>
+          </button>` : ''}
+          <button class=\"mobile-delete-button bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm\" title=\"Delete\">
+            <i class=\"fas fa-times text-sm\"></i>
+          </button>
+        </div>
       </div>`;
 
   const mobileDate = `<p class=\"sm:hidden mt-1 text-xs text-gray-500 dark:text-gray-400\">${formattedDate}</p>`;
@@ -286,7 +296,7 @@ function createRecordingItem(recording) {
         <audio class="audio-player" src="/recordings/${filename}"></audio>
       </td>
       <td class="p-2 recording-date text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap hidden sm:table-cell">${formattedDate}</td>
-      <td class="p-2 text-right">
+      <td class="p-2 text-right hidden sm:table-cell">
         <div class="flex items-center justify-end gap-2">
           ${metadata.transcription ? `<button class="view-transcript-button bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-md w-8 h-8 inline-flex items-center justify-center transition-colors duration-200 shadow-sm" title="View transcription">
             <i class="fas fa-file-alt text-sm"></i>
@@ -352,12 +362,33 @@ function createRecordingItem(recording) {
     });
   }
   
-  // Add handler for view transcript button
+  // Add handler for desktop view transcript button
   const transcriptButton = row.querySelector('.view-transcript-button');
   if (transcriptButton) {
     transcriptButton.addEventListener('click', (e) => {
       e.stopPropagation();
       showTranscriptionModal(filename, metadata);
+    });
+  }
+  
+  // Add handler for mobile view transcript button
+  const mobileTranscriptButton = row.querySelector('.mobile-transcript-button');
+  if (mobileTranscriptButton) {
+    mobileTranscriptButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showTranscriptionModal(filename, metadata);
+    });
+  }
+  
+  // Add handler for mobile delete button
+  const mobileDeleteButton = row.querySelector('.mobile-delete-button');
+  if (mobileDeleteButton) {
+    mobileDeleteButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = mobileDeleteButton.closest('.recording-item');
+      if (confirm(`Are you sure you want to delete ${item.dataset.filename}?`)) {
+        fetch(`/delete/${item.dataset.filename}`, { method: 'POST' }).then(() => loadRecordings());
+      }
     });
   }
 
@@ -469,7 +500,9 @@ function setupEventListeners() {
       if (e.target.closest('.plyr')) return; // Don't toggle selection when clicking the player
       if (e.target.closest('.mobile-play')) return; // Don't toggle when clicking mobile play
       if (e.target.closest('.delete-button')) return; // Don't toggle selection when clicking delete
+      if (e.target.closest('.mobile-delete-button')) return; // Don't toggle when clicking mobile delete
       if (e.target.closest('.view-transcript-button')) return; // Don't toggle when clicking transcript button
+      if (e.target.closest('.mobile-transcript-button')) return; // Don't toggle when clicking mobile transcript
       if (e.target.classList.contains('recording-name')) return; // Don't toggle when clicking the name
 
       const checkbox = this.querySelector(".recording-checkbox");

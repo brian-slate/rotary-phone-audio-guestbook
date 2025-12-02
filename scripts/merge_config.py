@@ -32,11 +32,14 @@ def merge_configs(template_path: Path, existing_path: Path, output_path: Path):
         # No existing config, use template as-is
         existing = {}
     
-    # Merge: existing values override template, template adds new keys
+    # Merge: existing values ALWAYS override template, template only adds missing keys
     merged = template.copy()
+    preserved_values = []
     for key, value in existing.items():
         if key in merged:
-            # Preserve user's existing value
+            # ALWAYS preserve user's existing value, even if template has different value
+            if merged[key] != value:
+                preserved_values.append((key, value, template[key]))
             merged[key] = value
         # Note: we don't add keys from existing that aren't in template
         # This prevents deprecated keys from persisting
@@ -50,12 +53,19 @@ def merge_configs(template_path: Path, existing_path: Path, output_path: Path):
     preserved_keys = set(template.keys()) & set(existing.keys())
     
     if added_keys:
-        print(f"Added {len(added_keys)} new config keys with defaults:")
+        print(f"Added {len(added_keys)} new config keys with template defaults:")
         for key in sorted(added_keys):
-            print(f"  - {key}: {template[key]}")
+            print(f"  + {key}: {template[key]}")
+    
+    if preserved_values:
+        print(f"Preserved {len(preserved_values)} user-modified values (not overwritten):")
+        for key, user_val, template_val in preserved_values:
+            print(f"  ✓ {key}: kept '{user_val}' (template has '{template_val}')")
     
     if preserved_keys:
-        print(f"Preserved {len(preserved_keys)} existing config values")
+        unchanged_count = len(preserved_keys) - len(preserved_values)
+        if unchanged_count > 0:
+            print(f"Kept {unchanged_count} values matching template")
     
     return True
 
