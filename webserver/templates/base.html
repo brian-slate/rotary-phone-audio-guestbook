@@ -8,9 +8,19 @@
   <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}" />
   <title>{% block title %}Audio Guestbook{% endblock %}</title>
+  <!-- CRITICAL: Apply dark mode class BEFORE any content renders to prevent flash -->
+  <script>
+    // Immediately apply dark class if needed (before any CSS loads)
+    (function() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
   <link href="{{ url_for('static', filename='css/output.min.css') }}" rel="stylesheet" />
   <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet" />
-  <!-- Load theme.js first to ensure it initializes before page content -->
+  <!-- Load theme.js to handle toggle interactions -->
   <script src="{{ url_for('static', filename='js/theme.js') }}" defer></script>
   <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
   {% block extra_head %}{% endblock %}

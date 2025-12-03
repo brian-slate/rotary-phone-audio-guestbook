@@ -38,7 +38,13 @@ class MetadataManager:
             json.dump(data, f, indent=2)
     
     def initialize_recording(self, filename: str, file_size: int):
-        """Create initial metadata entry for a new recording."""
+        """Create initial metadata entry for a new recording.
+        
+        Note: We intentionally do NOT set ai_metadata here so that the UI
+        doesn't show a 'pending' state when auto-processing is disabled.
+        The queue will set status as needed when auto-processing is enabled
+        or when a manual force-process occurs.
+        """
         with self.lock:
             data = self._read_metadata()
             
@@ -57,10 +63,7 @@ class MetadataManager:
                 "filename": filename,
                 "created_at": created_at,
                 "duration_seconds": duration_seconds,
-                "file_size_bytes": file_size,
-                "ai_metadata": {
-                    "processing_status": "pending"
-                }
+                "file_size_bytes": file_size
             }
             
             self._write_metadata(data)
@@ -71,7 +74,9 @@ class MetadataManager:
         with self.lock:
             data = self._read_metadata()
             if filename in data["recordings"]:
-                data["recordings"][filename]["ai_metadata"]["processing_status"] = "processing"
+                ai = data["recordings"][filename].setdefault("ai_metadata", {})
+                ai["processing_status"] = "processing"
+                ai["processing_started_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
                 self._write_metadata(data)
                 logger.info(f"Marked {filename} as processing")
     
@@ -158,7 +163,11 @@ class MetadataManager:
             return recordings
     
     def get_unprocessed_recordings(self) -> List[Dict]:
-        """Get recordings that need AI processing."""
+        """Get recordings that need AI processing.
+        
+        Returns recordings with status: pending, failed, or no status.
+        Note: 'skipped' is treated as 'failed' for backwards compatibility.
+        """
         with self.lock:
             data = self._read_metadata()
             unprocessed = []
@@ -167,7 +176,8 @@ class MetadataManager:
                 ai_meta = rec.get("ai_metadata", {})
                 status = ai_meta.get("processing_status")
                 
-                if status in ["pending", "failed", None]:
+                # Include: pending, failed, skipped (legacy), or no status
+                if status in ["pending", "failed", "skipped", None]:
                     # Check file still exists
                     if (self.recordings_path / filename).exists():
                         unprocessed.append(rec)

@@ -12,7 +12,6 @@ class AudioProcessor:
     """Process audio recordings with OpenAI Whisper and GPT-4o Mini."""
     
     def __init__(self, config: dict):
-        self.enabled = config.get('openai_enabled', False)
         self.gpt_model = config.get('openai_gpt_model', 'gpt-4o-mini')
         self.language = config.get('openai_language', 'en')
         self.compress_audio = config.get('openai_compress_audio', True)
@@ -26,24 +25,25 @@ class AudioProcessor:
             "blessing", "toast", "gratitude", "apology", "other"
         ])
         
-        if self.enabled:
+        # Initialize OpenAI client if API key is available
+        api_key = config.get('openai_api_key', '')
+        self.enabled = bool(api_key)  # Enabled if we have an API key
+        
+        if api_key:
             try:
                 from openai import OpenAI
-                api_key = config.get('openai_api_key', '')
-                if not api_key:
-                    logger.warning("OpenAI API key not configured")
-                    self.enabled = False
-                else:
-                    self.client = OpenAI(api_key=api_key)
-                    logger.info("OpenAI client initialized successfully")
+                self.client = OpenAI(api_key=api_key)
+                logger.info("OpenAI client initialized successfully")
             except ImportError:
                 logger.error("OpenAI library not installed. Run: pip install openai")
                 self.enabled = False
+        else:
+            logger.info("No OpenAI API key configured - AI features disabled")
     
     def process_recording(self, audio_file_path: str, filename: str) -> dict:
         """Process a recording through Whisper + GPT pipeline."""
         if not self.enabled:
-            raise ValueError("OpenAI processing not enabled")
+            raise ValueError("No OpenAI API key configured")
         
         compressed_file = None
         try:
@@ -76,7 +76,10 @@ class AudioProcessor:
                 'speaker_names': metadata.get('names', []),
                 'category': metadata.get('category', 'other'),
                 'summary': metadata.get('summary', filename),
-                'confidence': metadata.get('confidence', 0.5)
+'confidence': metadata.get('confidence', 0.5),
+                # Bubble up latency/model into ai_metadata
+                'gpt_latency_ms': metadata.get('gpt_latency_ms'),
+                'gpt_model': self.gpt_model
             }
         
         except Exception as e:
@@ -204,16 +207,38 @@ Respond ONLY with valid JSON in this exact format:
         
         # GPT-5 models use a different API (responses endpoint with reasoning control)
         if "gpt-5" in self.gpt_model.lower():
-            logger.info(f"Using {self.gpt_model} with reasoning.effort=none (no reasoning)")
+            logger.info(f"Using {self.gpt_model} with reasoning.effort=minimal (no reasoning)")
+            import time as _t
+            _t0 = _t.time()
+            # Note: GPT-5 models don't support temperature parameter
             response = self.client.responses.create(
                 model=self.gpt_model,
                 input=prompt,
-                reasoning={"effort": "none"},  # Disable reasoning completely
-                text={"format": "json"},
-                max_output_tokens=800
+                reasoning={"effort": "minimal"},  # keep minimal for speed
+                max_output_tokens=250
             )
-            # Extract content from responses API format
-            content = response.output[0].content if response.output else None
+            # Log latency (and warn if slow)
+            _elapsed = _t.time() - _t0
+            logger.info(f"GPT responses latency: {_elapsed:.2f}s (model={self.gpt_model})")
+            if _elapsed > 15:
+                logger.warning(f"GPT-5 responses call slow: {_elapsed:.1f}s")
+            # Prefer SDK convenience property when available
+            content = getattr(response, 'output_text', None)
+            if not content:
+                # Fallback: extract from structured output
+                if getattr(response, 'output', None):
+                    first = response.output[0]
+                    blocks = getattr(first, 'content', None)
+                    if isinstance(blocks, list):
+                        for block in blocks:
+                            # SDK may use attributes or dicts; handle both
+                            btype = getattr(block, 'type', None) or (block.get('type') if isinstance(block, dict) else None)
+                            if btype == 'output_text':
+                                content = getattr(block, 'text', None) or (block.get('text') if isinstance(block, dict) else None)
+                                if content:
+                                    break
+                if not content:
+                    content = None
         else:
             # GPT-4 and older models use chat completions API
             response = self.client.chat.completions.create(
@@ -233,7 +258,7 @@ Respond ONLY with valid JSON in this exact format:
         # Content already extracted above based on API type
         if not content or content.strip() == "":
             logger.error(f"Empty response from GPT model {self.gpt_model}")
-            logger.error(f"Finish reason: {finish_reason}, Full response: {response}")
+            logger.error(f"Full response: {response}")
             raise ValueError("GPT returned empty content")
         
         try:
@@ -241,6 +266,14 @@ Respond ONLY with valid JSON in this exact format:
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse GPT response as JSON: {content[:500]}")
             raise
+        
+        # Attach diagnostics (latency + model) for later inspection
+        if 'gpt_latency_ms' not in metadata:
+            try:
+                metadata['gpt_latency_ms'] = int(_elapsed * 1000)
+            except Exception:
+                pass
+        metadata['gpt_model'] = self.gpt_model
         
         # Post-process: Filter out ignored names (case-insensitive)
         if self.ignored_names and 'names' in metadata:

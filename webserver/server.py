@@ -1,3 +1,126 @@
+import io
+import logging
+import os
+import re
+import subprocess
+import sys
+import zipfile
+from io import BytesIO
+from pathlib import Path
+
+from flask import (
+    Flask,
+    Response,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+    url_for,
+)
+from ruamel.yaml import YAML
+
+# Set up logging and app configuration
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Get absolute paths for reliable file locations regardless of where the app is started
+WEBSERVER_DIR = Path(__file__).parent.absolute()
+BASE_DIR = WEBSERVER_DIR.parent
+STATIC_DIR = WEBSERVER_DIR / "static"
+
+# Log critical paths for debugging
+logger.info(f"Current working directory: {os.getcwd()}")
+logger.info(f"Webserver directory: {WEBSERVER_DIR}")
+logger.info(f"Base directory: {BASE_DIR}")
+logger.info(f"Static directory: {STATIC_DIR}")
+
+# Create Flask app with absolute path to static folder
+app = Flask(__name__,
+           static_url_path="/static",
+           static_folder=str(STATIC_DIR))
+app.secret_key = "supersecretkey"  # Needed for flashing messages
+
+# Shared path for persisting last OpenAI error
+ERROR_FILE = WEBSERVER_DIR / "last_openai_error.json"
+
+def _read_last_openai_error():
+    """Return dict with last error if API key configured and error file exists."""
+    try:
+        if not config.get('openai_api_key'):
+            return None
+        if ERROR_FILE.exists():
+            import json
+            return json.loads(ERROR_FILE.read_text())
+    except Exception as e:
+        logger.warning(f"Failed to read last OpenAI error: {e}")
+    return None
+
+
+def _clear_last_openai_error():
+    try:
+        if ERROR_FILE.exists():
+            ERROR_FILE.unlink()
+    except Exception as e:
+        logger.warning(f"Failed to clear last OpenAI error: {e}")
+
+
+@app.context_processor
+def inject_template_variables():
+    # Makes variables available to all templates
+    return {
+        "ai_processing_error": _read_last_openai_error(),
+        "version": "3.4.0"  # Remove openai_enabled, manual force-process improvements, bugfixes
+    }
+
+# Define other important paths
+config_path = BASE_DIR / "config.yaml"
+upload_folder = BASE_DIR / "uploads"
+upload_folder.mkdir(parents=True, exist_ok=True)
+
+logger.info(f"Config path: {config_path}")
+logger.info(f"Upload folder: {upload_folder}")
+
+# Initialize ruamel.yaml
+yaml = YAML()
+
+# Attempt to grab recording path from the configuration file
+try:
+    with config_path.open("r") as f:
+        config = yaml.load(f)
+        logger.info(f"Config loaded successfully from {config_path}")
+except FileNotFoundError as e:
+    logger.error(f"Configuration file not found: {e}")
+    sys.exit(1)
+except Exception as e:
+    logger.error(f"Error loading configuration: {e}")
+    sys.exit(1)
+
+# Ensure recordings_path is an absolute path
+recordings_path_str = config.get("recordings_path", "recordings")
+recordings_path = Path(recordings_path_str)
+if not recordings_path.is_absolute():
+    recordings_path = BASE_DIR / recordings_path_str
+    logger.info(f"Converted relative recordings path to absolute: {recordings_path}")
+
+# Verify recordings directory exists and is accessible
+if not recordings_path.exists():
+    logger.warning(f"Recordings directory does not exist: {recordings_path}")
+    try:
+        recordings_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created recordings directory: {recordings_path}")
+    except Exception as e:
+        logger.error(f"Failed to create recordings directory: {e}")
+        sys.exit(1)
+elif not recordings_path.is_dir():
+    logger.error(f"Recordings path exists but is not a directory: {recordings_path}")
+    sys.exit(1)
+else:
+    logger.info(f"Recordings directory verified: {recordings_path}")
+
+
 def update_config(form_data, skip_fields=None):
     """Update the YAML configuration with form data."""
     if skip_fields is None:
@@ -58,127 +181,6 @@ def update_config(form_data, skip_fields=None):
         except (ValueError, TypeError) as e:
             logger.error(f"Failed to update '{key}': {e}")
 
-import io
-import logging
-import os
-import re
-import subprocess
-import sys
-import zipfile
-from io import BytesIO
-from pathlib import Path
-
-from flask import (
-    Flask,
-    Response,
-    flash,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    send_file,
-    send_from_directory,
-    url_for,
-)
-from ruamel.yaml import YAML
-
-# Set up logging and app configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Get absolute paths for reliable file locations regardless of where the app is started
-WEBSERVER_DIR = Path(__file__).parent.absolute()
-BASE_DIR = WEBSERVER_DIR.parent
-STATIC_DIR = WEBSERVER_DIR / "static"
-
-# Log critical paths for debugging
-logger.info(f"Current working directory: {os.getcwd()}")
-logger.info(f"Webserver directory: {WEBSERVER_DIR}")
-logger.info(f"Base directory: {BASE_DIR}")
-logger.info(f"Static directory: {STATIC_DIR}")
-
-# Create Flask app with absolute path to static folder
-app = Flask(__name__,
-           static_url_path="/static",
-           static_folder=str(STATIC_DIR))
-app.secret_key = "supersecretkey"  # Needed for flashing messages
-
-# Shared path for persisting last OpenAI error
-ERROR_FILE = WEBSERVER_DIR / "last_openai_error.json"
-
-def _read_last_openai_error():
-    """Return dict with last error if OpenAI is enabled and error file exists."""
-    try:
-        if not config.get('openai_enabled', False):
-            return None
-        if ERROR_FILE.exists():
-            import json
-            return json.loads(ERROR_FILE.read_text())
-    except Exception as e:
-        logger.warning(f"Failed to read last OpenAI error: {e}")
-    return None
-
-
-def _clear_last_openai_error():
-    try:
-        if ERROR_FILE.exists():
-            ERROR_FILE.unlink()
-    except Exception as e:
-        logger.warning(f"Failed to clear last OpenAI error: {e}")
-
-
-@app.context_processor
-def inject_template_variables():
-    # Makes variables available to all templates
-    return {
-        "ai_processing_error": _read_last_openai_error(),
-        "version": "3.1.0"  # Minor: config fixes, mobile UI, bugfixes
-    }
-
-# Define other important paths
-config_path = BASE_DIR / "config.yaml"
-upload_folder = BASE_DIR / "uploads"
-upload_folder.mkdir(parents=True, exist_ok=True)
-
-logger.info(f"Config path: {config_path}")
-logger.info(f"Upload folder: {upload_folder}")
-
-# Initialize ruamel.yaml
-yaml = YAML()
-
-# Attempt to grab recording path from the configuration file
-try:
-    with config_path.open("r") as f:
-        config = yaml.load(f)
-        logger.info(f"Config loaded successfully from {config_path}")
-except FileNotFoundError as e:
-    logger.error(f"Configuration file not found: {e}")
-    sys.exit(1)
-except Exception as e:
-    logger.error(f"Error loading configuration: {e}")
-    sys.exit(1)
-
-# Ensure recordings_path is an absolute path
-recordings_path_str = config.get("recordings_path", "recordings")
-recordings_path = Path(recordings_path_str)
-if not recordings_path.is_absolute():
-    recordings_path = BASE_DIR / recordings_path_str
-    logger.info(f"Converted relative recordings path to absolute: {recordings_path}")
-
-# Verify recordings directory exists and is accessible
-if not recordings_path.exists():
-    logger.warning(f"Recordings directory does not exist: {recordings_path}")
-    try:
-        recordings_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created recordings directory: {recordings_path}")
-    except Exception as e:
-        logger.error(f"Failed to create recordings directory: {e}")
-        sys.exit(1)
-elif not recordings_path.is_dir():
-    logger.error(f"Recordings path exists but is not a directory: {recordings_path}")
-    sys.exit(1)
-else:
-    logger.info(f"Recordings directory verified: {recordings_path}")
 
 def normalize_path(path):
     """Normalize and convert paths to Unix format."""
@@ -323,15 +325,15 @@ def process_pending_recordings():
         
         metadata_mgr = MetadataManager(recordings_path)
         
-        # Reset failed and processing recordings to pending
+        # Reset failed, processing, and skipped (legacy) recordings to pending
         reset_count = 0
         data = metadata_mgr._read_metadata()
         for filename, rec in data['recordings'].items():
             ai_meta = rec.get('ai_metadata', {})
             status = ai_meta.get('processing_status')
             
-            # Reset failed or stuck processing recordings
-            if status in ['failed', 'processing']:
+            # Reset failed, stuck processing, or skipped (legacy) recordings
+            if status in ['failed', 'processing', 'skipped']:
                 data['recordings'][filename]['ai_metadata'] = {
                     'processing_status': 'pending'
                 }
@@ -355,11 +357,11 @@ def process_pending_recordings():
         except Exception as e:
             logger.warning(f"Could not create trigger file: {e}")
         
-        message = f'Reset {reset_count} recording(s) to pending. '
+        # User-facing message focuses on how many will be processed
         if total_count > 0:
-            message += f'{total_count} recording(s) will be processed when phone is idle.'
+            message = f"Queued {total_count} recording(s) for processing."
         else:
-            message += 'No recordings to process.'
+            message = "No unprocessed recordings found."
         
         return jsonify({
             'success': True,
@@ -432,10 +434,10 @@ def edit_config():
                     # Key was cleared - this is intentional removal
                     config['openai_key_verified'] = False
                 elif not new_api_key and not old_api_key:
-                    # Both empty - user is trying to enable AI without a key
-                    if request.form.get('openai_enabled') == 'true':
-                        logger.error("Attempted to enable AI without API key")
-                        flash("OpenAI API Key Error: Please provide an API key before enabling AI processing", "error")
+                    # Both empty - user is trying to enable auto-process without a key
+                    if request.form.get('openai_auto_process') == 'true':
+                        logger.error("Attempted to enable auto-process without API key")
+                        flash("OpenAI API Key Error: Please provide an API key before enabling auto-processing", "error")
                         return redirect(url_for("edit_config"))
                 # else: new_api_key is empty but old_api_key exists - user is just saving other settings, keep existing key
             
@@ -506,8 +508,8 @@ def edit_config():
             with config_path.open("w") as f:
                 yaml.dump(config, f)
 
-            # If AI was disabled via this save, clear any previous error
-            if not config.get('openai_enabled', False):
+            # If API key was removed via this save, clear any previous error
+            if not config.get('openai_api_key'):
                 _clear_last_openai_error()
 
             # Restart the audioGuestBook service to apply changes

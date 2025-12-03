@@ -57,10 +57,84 @@ button[type="submit"]:not([class*="p-"]):not([class*="px-"]):not([class*="py-"])
   visibility: visible;
 }
 
+/* Table layout fixes */
+table {
+  table-layout: auto;
+}
+
+/* Ensure proper column widths */
+table th:nth-child(1),
+table td:nth-child(1) {
+  width: 40px;
+}
+
+table th:nth-child(5),
+table td:nth-child(5) {
+  width: 100px;
+}
+
+@media (min-width: 640px) {
+  table th:nth-child(4),
+  table td:nth-child(4) {
+    width: 200px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  table th:nth-child(3),
+  table td:nth-child(3) {
+    width: auto;
+    min-width: 120px;
+  }
+}
+
+@media (min-width: 1024px) {
+  table th:nth-child(3),
+  table td:nth-child(3) {
+    width: 350px;
+    min-width: 350px;
+  }
+}
+
+/* Format Plyr time displays without leading zeros */
+.plyr__time {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .tooltip-bubble {
     max-width: 200px;
     font-size: 0.8125rem;
   }
+}
+
+/* Fallback for md:hidden if Tailwind JIT purged it from output */
+@media (min-width: 768px) {
+  .md\:hidden { display: none !important; }
+}
+
+/* Tablet compact player: show at 768-1023px, hide at 1024+ */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tablet-compact-player { display: flex !important; }
+  .plyr { display: none !important; }
+}
+
+@media (min-width: 1024px) {
+  .tablet-compact-player { display: none !important; }
+}
+
+/* Show microphone icons at 1280px+ */
+@media (min-width: 1280px) {
+  .xl\:flex { display: flex !important; }
+}
+
+/* Button label visibility and sizing at 768px+ */
+@media (min-width: 768px) {
+  .md\:inline { display: inline !important; }
+  .md\:w-auto { width: auto !important; }
+  .md\:h-auto { height: auto !important; }
+  .md\:px-4 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .md\:py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+  .md\:mr-2 { margin-right: 0.5rem !important; }
 }
