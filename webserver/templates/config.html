@@ -14,14 +14,50 @@
 
 <form id="form-id" method="POST" action="{{ url_for('edit_config') }}" enctype="multipart/form-data" class="space-y-4">
 
+  <!-- System Controls Card (Always Visible) -->
+  <div class="card">
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('systemControls')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-server mr-2"></i>System Controls</span>
+        <i id="systemControls-chevron" class="fas fa-chevron-down transition-transform"></i>
+      </h2>
+    </div>
+    <div id="systemControls-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Reboot Button -->
+        <div>
+          <button type="button" id="config-reboot-btn" 
+            class="w-full bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-3 font-medium transition-colors flex items-center justify-center">
+            <i class="fas fa-sync-alt mr-2"></i>Reboot System
+          </button>
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-2 block text-center">
+            Restart the Raspberry Pi (reconnect after ~30 seconds)
+          </span>
+        </div>
+        
+        <!-- Shutdown Button -->
+        <div>
+          <button type="button" id="config-shutdown-btn" 
+            class="w-full bg-red-500 hover:bg-red-600 text-white rounded px-4 py-3 font-medium transition-colors flex items-center justify-center">
+            <i class="fas fa-power-off mr-2"></i>Shutdown System
+          </button>
+          <span class="text-xs text-gray-500 dark:text-gray-400 mt-2 block text-center">
+            Power off the Raspberry Pi (unplug after LED stops blinking)
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Audio Files Card (Always Visible) -->
   <div class="card">
-      <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-        <h2 class="font-bold text-lg text-text dark:text-dark-text">
-          Audio Files
+      <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('audioFiles')">
+        <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+          <span><i class="fas fa-volume-up mr-2"></i>Audio Files</span>
+          <i id="audioFiles-chevron" class="fas fa-chevron-down transition-transform"></i>
         </h2>
       </div>
-      <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      <div id="audioFiles-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Greeting settings -->
           <div class="space-y-3">
@@ -215,6 +251,107 @@
     </div>
   </div>
 
+  <!-- WiFi Networks Card (Always Visible) -->
+  <div class="card">
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('wifiNetworks')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-wifi mr-2"></i>WiFi Networks</span>
+        <i id="wifiNetworks-chevron" class="fas fa-chevron-down transition-transform"></i>
+      </h2>
+    </div>
+    <div id="wifiNetworks-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      
+      <!-- Current Connection Status -->
+      <div id="currentNetwork" class="mb-4 p-4 bg-green-50 dark:bg-green-800 rounded-lg border-2 border-green-500 dark:border-green-400">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-bold text-lg text-green-800 dark:text-white">Connected</div>
+            <div id="currentNetworkName" class="text-base font-semibold text-green-900 dark:text-green-50 mt-1">Loading...</div>
+            <div id="currentNetworkIP" class="text-sm text-green-700 dark:text-green-100 mt-1"></div>
+          </div>
+          <div id="currentNetworkSignal" class="text-3xl text-green-600 dark:text-green-200">
+            <i class="fas fa-wifi"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two Column Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        
+        <!-- Left: Available Networks -->
+        <div>
+          <h3 class="font-semibold mb-3 flex items-center justify-between">
+            Available Networks
+            <button type="button" onclick="scanWiFi()" id="scanBtn" 
+              class="bg-blue-500 hover:bg-blue-600 text-white rounded px-3 py-1 text-sm transition-colors">
+              <i class="fas fa-sync-alt mr-1"></i>Scan
+            </button>
+          </h3>
+          
+          <div id="availableNetworks" class="space-y-2 max-h-64 overflow-y-auto">
+            <div class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              Click "Scan" to find available networks
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right: Add New Network -->
+        <div>
+          <h3 class="font-semibold mb-3">Add New Network</h3>
+          
+          <div class="space-y-3">
+            <div>
+              <label for="wifiSSID" class="block mb-1 text-sm">Network Name (SSID)</label>
+              <input type="text" id="wifiSSID" placeholder="Enter SSID" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+            </div>
+            
+            <div>
+              <label for="wifiPassword" class="block mb-1 text-sm">Password</label>
+              <input type="password" id="wifiPassword" placeholder="Enter password" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+            </div>
+            
+            <div>
+              <label for="wifiPriority" class="block mb-1 text-sm flex items-center">
+                Priority
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-xs" title="Higher priority networks are preferred. Your hotspot should be highest (e.g., 10), venue networks lower (e.g., 4).">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
+              <input type="number" id="wifiPriority" value="4" min="0" max="99" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+            </div>
+            
+            <button type="button" onclick="addWiFiNetwork()" 
+              class="w-full bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 font-medium transition-colors">
+              <i class="fas fa-plus mr-2"></i>Add Network
+            </button>
+            
+            <div id="wifiAddStatus" class="hidden mt-2"></div>
+          </div>
+          
+          <!-- Saved Networks -->
+          <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="font-semibold mb-3 flex items-center justify-between">
+              Saved Networks
+              <button type="button" onclick="loadSavedNetworks()" 
+                class="text-blue-500 hover:text-blue-600 text-sm">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </h3>
+            
+            <div id="savedNetworks" class="space-y-2">
+              <div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                Loading...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Advanced Mode Toggle -->
   <div class="mb-6 text-center">
     <button type="button" id="advancedModeToggle" onclick="toggleAdvancedMode()" 
@@ -230,7 +367,7 @@
     <div class="card">
       <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
         <h2 class="font-bold text-lg text-text dark:text-dark-text">
-          Recording Settings
+          <i class="fas fa-microphone mr-2"></i>Recording Settings
         </h2>
       </div>
       <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
@@ -439,7 +576,7 @@
   <div class="card">
     <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
       <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        Audio Settings
+        <i class="fas fa-sliders-h mr-2"></i>Audio Settings
       </h2>
     </div>
     <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
@@ -459,7 +596,7 @@
   <div class="card">
     <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
       <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        GPIO Settings
+        <i class="fas fa-microchip mr-2"></i>GPIO Settings
       </h2>
     </div>
     <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
@@ -534,7 +671,7 @@
   <div class="card">
     <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
       <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        Shutdown Settings
+        <i class="fas fa-clock mr-2"></i>Shutdown Settings
       </h2>
     </div>
     <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
@@ -1001,13 +1138,11 @@
       toggleText.textContent = 'Hide Advanced Settings';
       toggleButton.classList.remove('bg-gray-500', 'hover:bg-gray-600');
       toggleButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
-      localStorage.setItem('advancedMode', 'shown');
     } else {
       advancedSettings.style.display = 'none';
       toggleText.textContent = 'Show Advanced Settings';
       toggleButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
       toggleButton.classList.add('bg-gray-500', 'hover:bg-gray-600');
-      localStorage.setItem('advancedMode', 'hidden');
     }
   }
 
@@ -1024,6 +1159,9 @@
 
   // Initialize on page load
   document.addEventListener('DOMContentLoaded', function() {
+    // Initialize card states to defaults
+    initCardStates();
+    
     // File upload feedback
     document.querySelectorAll('input[type="file"]').forEach((input) => {
       input.addEventListener("change", function () {
@@ -1040,15 +1178,385 @@
       });
     });
     
-    // Restore advanced mode state
-    const advancedMode = localStorage.getItem('advancedMode');
-    if (advancedMode === 'shown') {
-      toggleAdvancedMode();
-    }
+    // Initialize WiFi section
+    loadCurrentNetwork();
+    loadSavedNetworks();
+    
+    // System controls event listeners
+    document.getElementById('config-reboot-btn')?.addEventListener('click', function() {
+      if (confirm('Are you sure you want to reboot the system? The Pi will restart in about 30 seconds.')) {
+        fetch('/reboot', { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('System is rebooting... Please wait 30-60 seconds before reconnecting.');
+            } else {
+              alert('Failed to reboot: ' + data.message);
+            }
+          })
+          .catch(err => alert('Error: ' + err.message));
+      }
+    });
+    
+    document.getElementById('config-shutdown-btn')?.addEventListener('click', function() {
+      if (confirm('Are you sure you want to shutdown the system? You will need to physically unplug and replug the Pi to turn it back on.')) {
+        fetch('/shutdown', { method: 'POST' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('System is shutting down... Wait for the LED to stop blinking, then unplug the Pi.');
+            } else {
+              alert('Failed to shutdown: ' + data.message);
+            }
+          })
+          .catch(err => alert('Error: ' + err.message));
+      }
+    });
     
     // Initialize tooltips
     initTooltips();
   });
+
+  // Card collapse/expand functionality
+  function toggleCard(cardId) {
+    const content = document.getElementById(`${cardId}-content`);
+    const chevron = document.getElementById(`${cardId}-chevron`);
+    
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      chevron.classList.remove('fa-chevron-right');
+      chevron.classList.add('fa-chevron-down');
+    } else {
+      content.style.display = 'none';
+      chevron.classList.remove('fa-chevron-down');
+      chevron.classList.add('fa-chevron-right');
+    }
+  }
+  
+  // Initialize card states to defaults (no localStorage)
+  function initCardStates() {
+    const defaultStates = {
+      systemControls: true,  // Expanded by default
+      audioFiles: true,      // Expanded by default
+      wifiNetworks: false    // Collapsed by default
+    };
+    
+    // Apply default states
+    Object.keys(defaultStates).forEach(cardId => {
+      const content = document.getElementById(`${cardId}-content`);
+      const chevron = document.getElementById(`${cardId}-chevron`);
+      
+      if (content && chevron) {
+        if (defaultStates[cardId]) {
+          content.style.display = 'block';
+          chevron.classList.remove('fa-chevron-right');
+          chevron.classList.add('fa-chevron-down');
+        } else {
+          content.style.display = 'none';
+          chevron.classList.remove('fa-chevron-down');
+          chevron.classList.add('fa-chevron-right');
+        }
+      }
+    });
+  }
+
+  // WiFi Management Functions
+  
+  // Load current connection on page load
+  function loadCurrentNetwork() {
+    fetch('/api/wifi/current')
+      .then(response => response.json())
+      .then(data => {
+        const currentDiv = document.getElementById('currentNetwork');
+        const nameDiv = document.getElementById('currentNetworkName');
+        const ipDiv = document.getElementById('currentNetworkIP');
+        const signalDiv = document.getElementById('currentNetworkSignal');
+        
+        if (data.success && data.network) {
+          nameDiv.textContent = data.network.ssid;
+          ipDiv.textContent = data.network.ip_address;
+          
+          // Update signal icon based on strength
+          const signal = parseInt(data.network.signal);
+          let icon = 'fa-wifi';
+          if (signal < 30) icon = 'fa-wifi-1';
+          else if (signal < 60) icon = 'fa-wifi-2';
+          
+          signalDiv.innerHTML = `<i class="fas ${icon}"></i>`;
+        } else {
+          currentDiv.className = 'mb-4 p-4 bg-yellow-50 dark:bg-yellow-800 rounded-lg border-2 border-yellow-500 dark:border-yellow-400';
+          
+          // Update label text and styling
+          const labelDiv = currentDiv.querySelector('div:first-child > div:first-child');
+          labelDiv.className = 'font-bold text-lg text-yellow-800 dark:text-white';
+          labelDiv.textContent = 'Not Connected';
+          
+          nameDiv.className = 'text-base font-semibold text-yellow-900 dark:text-yellow-50 mt-1';
+          nameDiv.textContent = 'No active WiFi connection';
+          ipDiv.textContent = '';
+          signalDiv.className = 'text-3xl text-yellow-600 dark:text-yellow-200';
+          signalDiv.innerHTML = '<i class="fas fa-wifi-slash"></i>';
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load current network:', err);
+      });
+  }
+  
+  // Scan for WiFi networks
+  function scanWiFi() {
+    const scanBtn = document.getElementById('scanBtn');
+    const networksDiv = document.getElementById('availableNetworks');
+    
+    scanBtn.disabled = true;
+    scanBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Scanning...';
+    networksDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Scanning for networks...</div>';
+    
+    fetch('/api/wifi/scan')
+      .then(response => response.json())
+      .then(data => {
+        scanBtn.disabled = false;
+        scanBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Scan';
+        
+        if (data.success && data.networks && data.networks.length > 0) {
+          networksDiv.innerHTML = '';
+          data.networks.forEach(network => {
+            const signalBars = getSignalBars(parseInt(network.signal));
+            const encIcon = network.encryption === 'Open' ? 'fa-lock-open' : 'fa-lock';
+            
+            const networkEl = document.createElement('div');
+            networkEl.className = 'p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors';
+            networkEl.onclick = () => selectNetwork(network.ssid);
+            networkEl.innerHTML = `
+              <div class="flex items-center justify-between">
+                <div class="flex-1">
+                  <div class="font-medium">${network.ssid}</div>
+                  <div class="text-xs text-gray-500 dark:text-gray-400">${network.encryption}</div>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs text-gray-500 dark:text-gray-400">${signalBars}</span>
+                  <i class="fas ${encIcon} text-gray-400"></i>
+                </div>
+              </div>
+            `;
+            networksDiv.appendChild(networkEl);
+          });
+        } else {
+          networksDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No networks found</div>';
+        }
+      })
+      .catch(err => {
+        scanBtn.disabled = false;
+        scanBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Scan';
+        networksDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-4">Scan failed: ' + err.message + '</div>';
+      });
+  }
+  
+  // Select a network (populate form)
+  function selectNetwork(ssid) {
+    document.getElementById('wifiSSID').value = ssid;
+    document.getElementById('wifiPassword').focus();
+  }
+  
+  // Add WiFi network
+  function addWiFiNetwork() {
+    const ssid = document.getElementById('wifiSSID').value.trim();
+    const password = document.getElementById('wifiPassword').value.trim();
+    const priority = parseInt(document.getElementById('wifiPriority').value);
+    const statusDiv = document.getElementById('wifiAddStatus');
+    
+    if (!ssid) {
+      showStatus(statusDiv, 'Please enter an SSID', 'error');
+      return;
+    }
+    
+    if (!password) {
+      showStatus(statusDiv, 'Please enter a password', 'error');
+      return;
+    }
+    
+    statusDiv.className = 'mt-2 p-3 bg-blue-100 dark:bg-blue-900/20 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300';
+    statusDiv.textContent = 'Adding network...';
+    statusDiv.classList.remove('hidden');
+    
+    fetch('/api/wifi/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssid, password, priority })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showStatus(statusDiv, data.message, 'success');
+          // Clear form
+          document.getElementById('wifiSSID').value = '';
+          document.getElementById('wifiPassword').value = '';
+          document.getElementById('wifiPriority').value = '4';
+          // Reload lists
+          setTimeout(() => {
+            loadSavedNetworks();
+            loadCurrentNetwork();
+          }, 2000);
+        } else {
+          showStatus(statusDiv, data.message, 'error');
+        }
+      })
+      .catch(err => {
+        showStatus(statusDiv, 'Failed to add network: ' + err.message, 'error');
+      });
+  }
+  
+  // Update network priority
+  function updateNetworkPriority(ssid, newPriority) {
+    if (isNaN(newPriority) || newPriority < 0 || newPriority > 99) {
+      alert('Priority must be a number between 0 and 99');
+      return;
+    }
+    
+    // For now, we'll delete and re-add with new priority
+    // Get the password from the user since we need it to re-add
+    const password = prompt(`To change priority, we need to re-add the network.\n\nEnter password for "${ssid}":`);
+    if (!password) {
+      alert('Password required to update priority');
+      return;
+    }
+    
+    // Delete old entry
+    fetch('/api/wifi/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssid })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Re-add with new priority
+          return fetch('/api/wifi/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ssid, password, priority: newPriority })
+          });
+        } else {
+          throw new Error(data.message);
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(`Priority updated to ${newPriority}`);
+          loadSavedNetworks();
+        } else {
+          alert('Error updating priority: ' + data.message);
+        }
+      })
+      .catch(err => {
+        alert('Failed to update priority: ' + err.message);
+        loadSavedNetworks(); // Reload to show current state
+      });
+  }
+  
+  // Delete WiFi network
+  function deleteWiFiNetwork(ssid) {
+    if (!confirm(`Delete network "${ssid}"?`)) return;
+    
+    fetch('/api/wifi/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssid })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(data.message);
+          loadSavedNetworks();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      })
+      .catch(err => {
+        alert('Failed to delete network: ' + err.message);
+      });
+  }
+  
+  // Load saved networks
+  function loadSavedNetworks() {
+    const savedDiv = document.getElementById('savedNetworks');
+    savedDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">Loading...</div>';
+    
+    fetch('/api/wifi/saved')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.networks && data.networks.length > 0) {
+          savedDiv.innerHTML = '';
+          data.networks.forEach(network => {
+            const networkEl = document.createElement('div');
+            networkEl.className = 'flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded';
+            
+            // Escape SSID for display (prevent XSS)
+            const escapedSSID = network.ssid.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            networkEl.innerHTML = `
+              <div class="flex-1">
+                <div class="font-medium">${escapedSSID}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  Priority: 
+                  <span class="priority-value font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:underline" 
+                    title="Click to change priority">${network.priority}</span>
+                  <span class="text-gray-400 text-xs">(${network.priority >= 10 ? 'highest' : network.priority >= 5 ? 'high' : network.priority >= 2 ? 'medium' : 'low'})</span>
+                </div>
+              </div>
+              <button class="delete-network-btn text-red-500 hover:text-red-600 px-2 py-1 text-sm">
+                <i class="fas fa-trash"></i>
+              </button>
+            `;
+            
+            // Add priority click handler
+            const prioritySpan = networkEl.querySelector('.priority-value');
+            prioritySpan.addEventListener('click', () => {
+              const newPriority = prompt(`Change priority for "${network.ssid}"\n\nCurrent: ${network.priority}\nEnter new priority (0-99, higher = preferred):`, network.priority);
+              if (newPriority !== null && newPriority !== '') {
+                updateNetworkPriority(network.ssid, parseInt(newPriority));
+              }
+            });
+            
+            // Add delete handler
+            const deleteBtn = networkEl.querySelector('.delete-network-btn');
+            deleteBtn.addEventListener('click', () => deleteWiFiNetwork(network.ssid));
+            
+            savedDiv.appendChild(networkEl);
+          });
+        } else {
+          savedDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">No saved networks</div>';
+        }
+      })
+      .catch(err => {
+        savedDiv.innerHTML = '<div class="text-sm text-red-500 text-center py-2">Failed to load</div>';
+      });
+  }
+  
+  // Helper: Get signal bars icon
+  function getSignalBars(signal) {
+    if (signal >= 75) return '▂▄▆█';
+    if (signal >= 50) return '▂▄▆';
+    if (signal >= 25) return '▂▄';
+    return '▂';
+  }
+  
+  // Helper: Show status message
+  function showStatus(div, message, type) {
+    const colors = {
+      success: 'bg-green-100 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-300',
+      error: 'bg-red-100 dark:bg-red-900/20 border-red-500 text-red-700 dark:text-red-300',
+      info: 'bg-blue-100 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300'
+    };
+    div.className = `mt-2 p-3 border-l-4 ${colors[type] || colors.info}`;
+    div.textContent = message;
+    div.classList.remove('hidden');
+    
+    setTimeout(() => {
+      div.classList.add('hidden');
+    }, 5000);
+  }
 
   // Tooltip functionality for mobile and desktop
   function initTooltips() {

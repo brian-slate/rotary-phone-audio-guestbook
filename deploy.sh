@@ -97,6 +97,10 @@ ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
     # Merge config.yaml to preserve user settings while adding new defaults
     bash ${RPI_PROJECT_DIR}/scripts/merge_config_remote.sh ${RPI_PROJECT_DIR}
     
+    # Configure passwordless sudo for WiFi management
+    echo "Configuring WiFi management permissions..."
+    bash ${RPI_PROJECT_DIR}/scripts/configure-wifi-sudo.sh
+    
     # Copy service files to systemd directory
     echo "Copying service files to systemd directory..."
     sudo cp ${RPI_PROJECT_DIR}/*.service ${RPI_SYSTEMD_DIR}/

@@ -59,22 +59,6 @@
             <span class="text-xs hidden sm:block">Settings</span>
           </a>
 
-          <!-- Reboot Icon -->
-          <button id="reboot-btn"
-            class="group flex flex-col items-center hover:text-accent transition-colors duration-200"
-            title="Reboot System">
-            <i class="fas fa-sync-alt w-6 h-6 flex items-center justify-center text-lg mb-1"></i>
-            <span class="text-xs hidden sm:block">Reboot</span>
-          </button>
-
-          <!-- Shutdown Icon -->
-          <button id="shutdown-btn"
-            class="group flex flex-col items-center hover:text-accent transition-colors duration-200"
-            title="Shutdown System">
-            <i class="fas fa-power-off w-6 h-6 flex items-center justify-center text-lg mb-1"></i>
-            <span class="text-xs hidden sm:block">Power</span>
-          </button>
-
           <!-- Theme Switcher -->
           <label class="theme-switch group flex flex-col items-center cursor-pointer">
             <div class="relative inline-block w-10 h-5 mb-1">
@@ -122,66 +106,6 @@
   </footer>
 
   <script src="{{ url_for('static', filename='js/menu.js') }}"></script>
-  <!-- Add global script for reboot/shutdown functionality -->
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      // Reboot button event handler
-      document
-        .getElementById("reboot-btn")
-        ?.addEventListener("click", function () {
-          showConfirmDialog(
-            "Confirm Reboot",
-            "Are you sure you want to reboot the system?",
-            function () {
-              showLoading("Rebooting system...");
-              fetch("/reboot", { method: "POST" })
-                .then((response) => response.json())
-                .then((data) => {
-                  hideLoading();
-                  if (data.success) {
-                    showToast("System is rebooting...", "success");
-                  } else {
-                    showToast("Failed to reboot the system.", "error");
-                  }
-                })
-                .catch((error) => {
-                  hideLoading();
-                  console.error("Error:", error);
-                  showToast("An error occurred while trying to reboot the system.", "error");
-                });
-            }
-          );
-        });
-
-      // Shutdown button event handler
-      document
-        .getElementById("shutdown-btn")
-        ?.addEventListener("click", function () {
-          showConfirmDialog(
-            "Confirm Shutdown",
-            "Are you sure you want to shut down the system?",
-            function () {
-              showLoading("Shutting down system...");
-              fetch("/shutdown", { method: "POST" })
-                .then((response) => response.json())
-                .then((data) => {
-                  hideLoading();
-                  if (data.success) {
-                    showToast("System is shutting down...", "success");
-                  } else {
-                    showToast("Failed to shut down the system.", "error");
-                  }
-                })
-                .catch((error) => {
-                  hideLoading();
-                  console.error("Error:", error);
-                  showToast("An error occurred while trying to shut down the system.", "error");
-                });
-            }
-          );
-        });
-    });
-  </script>
   {% block extra_js %}{% endblock %}
 </body>
 

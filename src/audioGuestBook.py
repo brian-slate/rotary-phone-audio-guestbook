@@ -379,6 +379,24 @@ class AudioGuestBook:
         # Return to ready state
         self.led_show_ready_state()
         logger.info("Stopped LED animation, returned to ready state")
+
+    def led_stop_animation_without_saved(self):
+        """
+        Stop the recording animation and go straight to ready state (no Saved flash).
+        Used when the recording was discarded as junk/too short.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = False
+        
+        if self.led_animation_thread is not None:
+            self.led_animation_thread.join(timeout=1.0)
+            self.led_animation_thread = None
+        
+        # Directly show ready state without the green flash
+        self.led_show_ready_state()
+        logger.info("Stopped LED animation without Saved flash (junk/short recording)")
     
     def led_saved_animation(self):
         """
@@ -719,8 +737,35 @@ class AudioGuestBook:
             # Stop any ongoing processes before resetting the state
             self.stop_recording_and_playback()
             
-            # Stop LED animation and return to ready state
-            self.led_stop_animation()
+            # Decide whether to show "Saved" based on whether a valid file remains
+            show_saved = False
+            try:
+                if hasattr(self, 'current_recording_path'):
+                    file_path_tmp = Path(self.current_recording_path)
+                    if file_path_tmp.exists():
+                        min_size = self.audio_interface.minimum_file_size_bytes
+                        size_tmp = file_path_tmp.stat().st_size
+                        if size_tmp >= min_size:
+                            # Optional duration check for extra safety
+                            try:
+                                import wave
+                                with wave.open(str(file_path_tmp), 'rb') as wav:
+                                    frames = wav.getnframes()
+                                    rate = wav.getframerate()
+                                    duration_tmp = frames / float(rate or 1)
+                                if duration_tmp >= self.audio_interface.minimum_message_duration:
+                                    show_saved = True
+                            except Exception:
+                                # If duration check fails but size is OK, still show saved
+                                show_saved = True
+            except Exception as _:
+                show_saved = False
+
+            # Stop LED animation and return to ready state (skip Saved if junk)
+            if show_saved:
+                self.led_stop_animation()
+            else:
+                self.led_stop_animation_without_saved()
             
             # Reset current_event BEFORE queuing AI so callback sees phone as idle
             self.current_event = CurrentEvent.NONE
@@ -730,10 +775,37 @@ class AudioGuestBook:
                 file_path = Path(self.current_recording_path)
                 
                 if file_path.exists():
+                    # Secondary pre-queue validation to avoid AI LED on junk files
+                    try:
+                        file_size = file_path.stat().st_size
+                        min_size = self.audio_interface.minimum_file_size_bytes
+                        if file_size < min_size:
+                            logger.info(f"Skipping AI queue: file too small ({file_size} < {min_size} bytes): {file_path.name}")
+                            file_path.unlink(missing_ok=True)
+                            return
+                        # Compute duration from WAV header
+                        import wave
+                        with wave.open(str(file_path), 'rb') as wav:
+                            frames = wav.getnframes()
+                            rate = wav.getframerate()
+                            duration = frames / float(rate or 1)
+                        min_dur = self.audio_interface.minimum_message_duration
+                        if duration < min_dur:
+                            logger.info(f"Skipping AI queue: duration too short ({duration:.2f}s < {min_dur:.2f}s): {file_path.name}")
+                            file_path.unlink(missing_ok=True)
+                            return
+                    except Exception as preq_err:
+                        logger.warning(f"Pre-queue validation error for {file_path.name}: {preq_err}. Skipping.")
+                        try:
+                            file_path.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        return
+
                     # Initialize metadata entry
                     self.metadata_manager.initialize_recording(
                         file_path.name,
-                        file_path.stat().st_size
+                        file_size
                     )
                     
                     # Queue for AI processing (will process when idle)

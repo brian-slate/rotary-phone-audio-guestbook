@@ -881,6 +881,96 @@ def system_status():
         logger.error(f"Error getting system status: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
+
+# WiFi Management Endpoints
+@app.route("/api/wifi/scan")
+def wifi_scan():
+    """Scan for available WiFi networks."""
+    try:
+        from wifi_manager import WiFiManager
+        networks = WiFiManager.scan_networks()
+        return jsonify({"success": True, "networks": networks})
+    except Exception as e:
+        logger.error(f"WiFi scan failed: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/current")
+def wifi_current():
+    """Get currently connected network."""
+    try:
+        from wifi_manager import WiFiManager
+        current = WiFiManager.get_current_network()
+        return jsonify({"success": True, "network": current})
+    except Exception as e:
+        logger.error(f"Failed to get current network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/saved")
+def wifi_saved():
+    """Get list of saved WiFi networks."""
+    try:
+        from wifi_manager import WiFiManager
+        networks = WiFiManager.get_saved_networks()
+        return jsonify({"success": True, "networks": networks})
+    except Exception as e:
+        logger.error(f"Failed to get saved networks: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/add", methods=["POST"])
+def wifi_add():
+    """Add a new WiFi network."""
+    try:
+        data = request.get_json()
+        ssid = data.get('ssid', '').strip()
+        password = data.get('password', '').strip()
+        priority = int(data.get('priority', 4))
+        
+        if not ssid:
+            return jsonify({"success": False, "message": "SSID is required"}), 400
+        if not password:
+            return jsonify({"success": False, "message": "Password is required"}), 400
+        
+        from wifi_manager import WiFiManager
+        success, message = WiFiManager.add_network(ssid, password, priority)
+        
+        if success:
+            return jsonify({"success": True, "message": message})
+        else:
+            return jsonify({"success": False, "message": message}), 400
+            
+    except Exception as e:
+        logger.error(f"Failed to add network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/delete", methods=["POST"])
+def wifi_delete():
+    """Delete a saved WiFi network."""
+    try:
+        data = request.get_json()
+        logger.info(f"WiFi delete request received. Data: {data}")
+        ssid = data.get('ssid', '').strip()
+        logger.info(f"SSID after strip: '{ssid}'")
+        
+        if not ssid:
+            return jsonify({"success": False, "message": "SSID is required"}), 400
+        
+        from wifi_manager import WiFiManager
+        success, message = WiFiManager.delete_network(ssid)
+        
+        if success:
+            return jsonify({"success": True, "message": message})
+        else:
+            return jsonify({"success": False, "message": message}), 400
+            
+    except Exception as e:
+        logger.error(f"Failed to delete network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route("/delete-recordings", methods=["POST"])
 def delete_recordings():
     """Delete multiple recordings in bulk."""

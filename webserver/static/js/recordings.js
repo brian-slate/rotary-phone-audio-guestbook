@@ -216,9 +216,9 @@ function createRecordingItem(recording) {
   // Processing status indicator (no checkmark for completed)
   let statusIndicator = '';
   if (isProcessing) {
-    statusIndicator = '<i class="fas fa-spinner fa-spin ml-2 text-blue-500" title="Processing..."></i>';
+    statusIndicator = '<i class="fas fa-spinner fa-spin ml-2 text-blue-500 self-center align-middle" title="Processing..."></i>';
   } else if (isPending) {
-    statusIndicator = '<i class="fas fa-clock ml-2 text-gray-400" title="Pending processing"></i>';
+    statusIndicator = '<i class="fas fa-clock ml-2 text-gray-400 self-center align-middle" title="Pending processing"></i>';
   }
   
   // Format speaker names as pills with person icons
@@ -309,7 +309,7 @@ function createRecordingItem(recording) {
             <i class="fas fa-microphone text-white text-sm"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-start gap-1 mb-1 min-w-0">
+            <div class=\"flex items-center gap-1 mb-1 min-w-0\">
               <span class="recording-name font-semibold cursor-pointer hover:text-blue-600 block flex-1 min-w-0 break-words"
                     data-filename="${filename}"
                     title="${metadata.transcription ? 'Click to view transcription' : filename}">
