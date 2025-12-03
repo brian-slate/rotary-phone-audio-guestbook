@@ -666,6 +666,46 @@ class AudioGuestBook:
             self.greeting_thread = threading.Thread(target=self.play_greeting_and_beep)
             self.greeting_thread.start()
 
+    def _get_greeting_file(self) -> str:
+        """Select greeting file based on configured mode.
+        
+        Returns:
+            Path to the greeting file to play
+        """
+        mode = self.config.get("greeting_mode", "single")
+        
+        if mode == "single":
+            return self.config["greeting"]
+        
+        # For random and sequential, get all .wav files from greetings directory
+        sounds_dir = Path(self.config["greeting"]).parent
+        greeting_files = sorted([str(f) for f in sounds_dir.iterdir() if f.is_file() and f.suffix.lower() == ".wav"])
+        
+        if not greeting_files:
+            logger.warning(f"No greeting files found in {sounds_dir}, using default")
+            return self.config["greeting"]
+        
+        if mode == "random":
+            selected = random.choice(greeting_files)
+            logger.info(f"Random greeting selected: {Path(selected).name}")
+            return selected
+        
+        elif mode == "sequential":
+            # Lazy import greeting state manager
+            if not hasattr(self, 'greeting_manager'):
+                try:
+                    sys.path.insert(0, str(Path(__file__).parent.parent / "webserver"))
+                    from greeting_state_manager import GreetingStateManager
+                    self.greeting_manager = GreetingStateManager(self.config['recordings_path'])
+                except ImportError as e:
+                    logger.error(f"Failed to import GreetingStateManager: {e}")
+                    return self.config["greeting"]
+            
+            return self.greeting_manager.get_next_greeting(greeting_files)
+        
+        # Fallback
+        return self.config["greeting"]
+    
     def start_recording(self, output_file: str):
         """
         Starts the audio recording process and sets a timer for time exceeded event.
@@ -687,8 +727,12 @@ class AudioGuestBook:
         # Play the greeting
         self.audio_interface.continue_playback = self.current_event == CurrentEvent.HOOK
         logger.info("Playing voicemail...")
+        
+        # Get greeting file based on mode (single, random, or sequential)
+        greeting_file = self._get_greeting_file()
+        
         self.audio_interface.play_audio(
-            self.config["greeting"],
+            greeting_file,
             self.config["greeting_volume"],
             self.config["greeting_start_delay"],
         )

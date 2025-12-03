@@ -33,6 +33,7 @@ beep_include_in_message: true
 greeting: /home/admin/rotary-phone-audio-guestbook/sounds/greeting.wav
 greeting_volume: 1.0
 greeting_start_delay: 1.5
+greeting_mode: single  # Options: single, random, sequential (uses all .wav files in sounds/greetings/)
 
 # The time_exceeded sound is played when the user has been recording for too long
 time_exceeded: sounds/time_exceeded/new-time-exceeded.wav

@@ -23,6 +23,38 @@
       </h2>
     </div>
     <div id="systemControls-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      <!-- Password Protection Section -->
+      <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <h3 class="font-semibold mb-3 flex items-center">
+          <i class="fas fa-shield-alt mr-2"></i>Web UI Security
+        </h3>
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="font-medium text-text dark:text-dark-text">Password Protection</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+              {% if password_protected %}
+                <span class="text-green-600 dark:text-green-400"><i class="fas fa-lock mr-1"></i>Enabled</span>
+              {% else %}
+                <span class="text-gray-500 dark:text-gray-400"><i class="fas fa-lock-open mr-1"></i>Disabled</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" onclick="openPasswordModal()" 
+              class="bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2 text-sm transition-colors">
+              <i class="fas fa-key mr-1"></i>{% if password_protected %}Change{% else %}Set{% endif %} Password
+            </button>
+            {% if password_protected %}
+            <button type="button" onclick="removePassword()" 
+              class="bg-red-500 hover:bg-red-600 text-white rounded px-4 py-2 text-sm transition-colors">
+              <i class="fas fa-unlock mr-1"></i>Remove
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      
+      <!-- System Buttons -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Reboot Button -->
         <div>
@@ -66,7 +98,22 @@
             </h3>
 
             <div class="mb-2">
-              <label for="greeting_select" class="block mb-1">Active Greeting</label>
+              <label for="greeting_mode" class="block mb-1 flex items-center">
+                Greeting Mode
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Single: plays selected greeting. Random: plays random greeting from folder. Sequential: cycles through greetings in order.">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
+              <select id="greeting_mode" name="greeting_mode" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
+                <option value="single" {% if config.get('greeting_mode', 'single') == 'single' %}selected{% endif %}>Single Message</option>
+                <option value="random" {% if config.get('greeting_mode') == 'random' %}selected{% endif %}>Random Selection</option>
+                <option value="sequential" {% if config.get('greeting_mode') == 'sequential' %}selected{% endif %}>Sequential (Round-Robin)</option>
+              </select>
+            </div>
+
+            <div class="mb-2">
+              <label for="greeting_select" class="block mb-1">Active Greeting (Single Mode)</label>
               <select id="greeting_select" name="greeting" 
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
                 {% for file in available_greetings %}
@@ -295,58 +342,26 @@
           </div>
         </div>
         
-        <!-- Right: Add New Network -->
+        <!-- Right: Saved Networks and Add Button -->
         <div>
-          <h3 class="font-semibold mb-3">Add New Network</h3>
-          
-          <div class="space-y-3">
-            <div>
-              <label for="wifiSSID" class="block mb-1 text-sm">Network Name (SSID)</label>
-              <input type="text" id="wifiSSID" placeholder="Enter SSID" 
-                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-            </div>
-            
-            <div>
-              <label for="wifiPassword" class="block mb-1 text-sm">Password</label>
-              <input type="password" id="wifiPassword" placeholder="Enter password" 
-                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-            </div>
-            
-            <div>
-              <label for="wifiPriority" class="block mb-1 text-sm flex items-center">
-                Priority
-                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-xs" title="Higher priority networks are preferred. Your hotspot should be highest (e.g., 10), venue networks lower (e.g., 4).">
-                  <i class="fas fa-info-circle"></i>
-                </span>
-              </label>
-              <input type="number" id="wifiPriority" value="4" min="0" max="99" 
-                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
-            </div>
-            
-            <button type="button" onclick="addWiFiNetwork()" 
-              class="w-full bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 font-medium transition-colors">
-              <i class="fas fa-plus mr-2"></i>Add Network
+          <h3 class="font-semibold mb-3 flex items-center justify-between">
+            Saved Networks
+            <button type="button" onclick="loadSavedNetworks()" 
+              class="text-blue-500 hover:text-blue-600 text-sm">
+              <i class="fas fa-sync-alt"></i>
             </button>
-            
-            <div id="wifiAddStatus" class="hidden mt-2"></div>
-          </div>
+          </h3>
           
-          <!-- Saved Networks -->
-          <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="font-semibold mb-3 flex items-center justify-between">
-              Saved Networks
-              <button type="button" onclick="loadSavedNetworks()" 
-                class="text-blue-500 hover:text-blue-600 text-sm">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-            </h3>
-            
-            <div id="savedNetworks" class="space-y-2">
-              <div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-                Loading...
-              </div>
+          <div id="savedNetworks" class="space-y-2 mb-4">
+            <div class="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+              Loading...
             </div>
           </div>
+          
+          <button type="button" onclick="openWiFiModal('add')" 
+            class="w-full bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 font-medium transition-colors">
+            <i class="fas fa-plus mr-2"></i>Add Network
+          </button>
         </div>
       </div>
     </div>
@@ -365,12 +380,13 @@
 
   <!-- Recording Settings Card -->
     <div class="card">
-      <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-        <h2 class="font-bold text-lg text-text dark:text-dark-text">
-          <i class="fas fa-microphone mr-2"></i>Recording Settings
+      <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('recordingSettings')">
+        <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+          <span><i class="fas fa-microphone mr-2"></i>Recording Settings</span>
+          <i id="recordingSettings-chevron" class="fas fa-chevron-right transition-transform"></i>
         </h2>
       </div>
-      <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+      <div id="recordingSettings-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b" style="display: none;">
         <div class="mb-2 lg:mb-4">
           <label for="recording_limit" class="block mb-1 lg:mb-2 flex items-center">
             Recording Limit
@@ -574,12 +590,13 @@
 
   <!-- Audio Settings Card -->
   <div class="card">
-    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-      <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        <i class="fas fa-sliders-h mr-2"></i>Audio Settings
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('audioSettings')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-sliders-h mr-2"></i>Audio Settings</span>
+        <i id="audioSettings-chevron" class="fas fa-chevron-right transition-transform"></i>
       </h2>
     </div>
-    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+    <div id="audioSettings-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b" style="display: none;">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         {% for field in ['alsa_hw_mapping', 'mixer_control_name', 'format', 'file_type', 'channels', 'sample_rate'] %}
         <div class="mb-2">
@@ -594,12 +611,13 @@
 
   <!-- GPIO Settings Card -->
   <div class="card">
-    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-      <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        <i class="fas fa-microchip mr-2"></i>GPIO Settings
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('gpioSettings')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-microchip mr-2"></i>GPIO Settings</span>
+        <i id="gpioSettings-chevron" class="fas fa-chevron-right transition-transform"></i>
       </h2>
     </div>
-    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+    <div id="gpioSettings-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b" style="display: none;">
     <!-- Hook GPIO -->
     <div class="mb-2 lg:mb-4">
       <label for="hook_gpio" class="block mb-1 lg:mb-2">Hook Gpio</label>
@@ -669,12 +687,13 @@
 
   <!-- Shutdown Settings Card -->
   <div class="card">
-    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-      <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        <i class="fas fa-clock mr-2"></i>Shutdown Settings
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('shutdownSettings')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-clock mr-2"></i>Shutdown Settings</span>
+        <i id="shutdownSettings-chevron" class="fas fa-chevron-right transition-transform"></i>
       </h2>
     </div>
-    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+    <div id="shutdownSettings-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b" style="display: none;">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div>
           <label for="shutdown_gpio" class="block mb-1 lg:mb-2">Shutdown GPIO</label>
@@ -691,14 +710,15 @@
     </div>
   </div>
 
-  <!-- OpenAI AI Processing Settings Card -->
+  <!-- AI Processing Settings Card -->
   <div class="card">
-    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t">
-      <h2 class="font-bold text-lg text-text dark:text-dark-text">
-        <i class="fas fa-robot mr-2"></i>OpenAI AI Processing Settings
+    <div class="bg-primary dark:bg-dark-primary p-2 lg:p-4 rounded-t cursor-pointer hover:opacity-90 transition-opacity" onclick="toggleCard('openaiSettings')">
+      <h2 class="font-bold text-lg text-text dark:text-dark-text flex items-center justify-between">
+        <span><i class="fas fa-robot mr-2"></i>AI Processing Settings</span>
+        <i id="openaiSettings-chevron" class="fas fa-chevron-right transition-transform"></i>
       </h2>
     </div>
-    <div class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b">
+    <div id="openaiSettings-content" class="bg-secondary dark:bg-dark-secondary text-text dark:text-dark-text shadow-md p-4 rounded-b" style="display: none;">
       
       <!-- Two Column Layout: API Key + Model on left, Auto-process box on right -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1013,6 +1033,126 @@
     </button>
   </div>
 </form>
+
+<!-- WiFi Network Modal -->
+<div id="wifiModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50" onclick="closeWiFiModal(event)">
+  <div class="bg-secondary dark:bg-dark-secondary rounded-lg shadow-xl max-w-md w-full mx-4" onclick="event.stopPropagation()">
+    <!-- Modal Header -->
+    <div class="bg-primary dark:bg-dark-primary p-4 rounded-t-lg flex items-center justify-between">
+      <h3 id="wifiModalTitle" class="text-lg font-bold text-text dark:text-dark-text">
+        <i class="fas fa-wifi mr-2"></i>Add Network
+      </h3>
+      <button onclick="closeWiFiModal()" class="text-text dark:text-dark-text hover:opacity-70">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <!-- Modal Body -->
+    <div class="p-6 space-y-4">
+      <!-- Alert Message -->
+      <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300 text-sm">
+        <i class="fas fa-info-circle mr-2"></i>
+        <strong>Changes take effect immediately</strong> and will update the WiFi configuration on the device.
+      </div>
+      
+      <!-- SSID -->
+      <div>
+        <label for="modalSSID" class="block mb-1 font-semibold text-text dark:text-dark-text">Network Name (SSID)</label>
+        <input type="text" id="modalSSID" placeholder="Enter SSID" 
+          class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+      </div>
+      
+      <!-- Password -->
+      <div>
+        <label for="modalPassword" class="block mb-1 font-semibold text-text dark:text-dark-text">Password</label>
+        <input type="password" id="modalPassword" placeholder="Enter password" 
+          class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">Leave blank when editing to keep existing password</span>
+      </div>
+      
+      <!-- Priority -->
+      <div>
+        <label for="modalPriority" class="block mb-1 font-semibold text-text dark:text-dark-text flex items-center">
+          Priority
+          <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Higher priority networks are preferred. Your hotspot should be highest (e.g., 10), venue networks lower (e.g., 4).">
+            <i class="fas fa-info-circle"></i>
+          </span>
+        </label>
+        <input type="number" id="modalPriority" value="4" min="0" max="99" 
+          class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+        <span class="text-xs text-gray-500 dark:text-gray-400 mt-1 block">0-99, higher numbers connect first</span>
+      </div>
+      
+      <!-- Status Message -->
+      <div id="modalStatus" class="hidden mt-2"></div>
+    </div>
+    
+    <!-- Modal Footer -->
+    <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-b-lg flex gap-3">
+      <button onclick="closeWiFiModal()" 
+        class="flex-1 bg-gray-500 hover:bg-gray-600 text-white rounded px-4 py-2 font-medium transition-colors">
+        Cancel
+      </button>
+      <button id="wifiModalSaveBtn" onclick="saveWiFiModal()" 
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 font-medium transition-colors">
+        <i class="fas fa-save mr-2"></i><span id="wifiModalSaveText">Add</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Protection Modal -->
+<div id="passwordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50" onclick="closePasswordModal(event)">
+  <div class="bg-secondary dark:bg-dark-secondary rounded-lg shadow-xl max-w-md w-full mx-4" onclick="event.stopPropagation()">
+    <!-- Modal Header -->
+    <div class="bg-primary dark:bg-dark-primary p-4 rounded-t-lg flex items-center justify-between">
+      <h3 class="text-lg font-bold text-text dark:text-dark-text">
+        <i class="fas fa-shield-alt mr-2"></i>Set Web UI Password
+      </h3>
+      <button onclick="closePasswordModal()" class="text-text dark:text-dark-text hover:opacity-70">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    
+    <!-- Modal Body -->
+    <div class="p-6 space-y-4">
+      <!-- Alert Message -->
+      <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 text-amber-900 dark:text-yellow-300 text-sm">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        <strong>Important:</strong> Changes take effect immediately. Write down your password! If locked out, SSH to the device and clear <code>web_password</code> in <code>config.yaml</code>.
+      </div>
+      
+      <!-- Password -->
+      <div>
+        <label for="modalWebPassword" class="block mb-1 font-semibold text-text dark:text-dark-text">Password</label>
+        <input type="password" id="modalWebPassword" placeholder="Enter password" 
+          class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+      </div>
+      
+      <!-- Confirm Password -->
+      <div>
+        <label for="modalWebPasswordConfirm" class="block mb-1 font-semibold text-text dark:text-dark-text">Confirm Password</label>
+        <input type="password" id="modalWebPasswordConfirm" placeholder="Re-enter password" 
+          class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+      </div>
+      
+      <!-- Status Message -->
+      <div id="passwordModalStatus" class="hidden mt-2"></div>
+    </div>
+    
+    <!-- Modal Footer -->
+    <div class="bg-gray-50 dark:bg-gray-800 p-4 rounded-b-lg flex gap-3">
+      <button onclick="closePasswordModal()" 
+        class="flex-1 bg-gray-500 hover:bg-gray-600 text-white rounded px-4 py-2 font-medium transition-colors">
+        Cancel
+      </button>
+      <button id="passwordModalSaveBtn" onclick="savePasswordModal()" 
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2 font-medium transition-colors">
+        <i class="fas fa-save mr-2"></i>Secure
+      </button>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 
@@ -1352,107 +1492,165 @@
       });
   }
   
-  // Select a network (populate form)
+  // Select a network (populate modal)
   function selectNetwork(ssid) {
-    document.getElementById('wifiSSID').value = ssid;
-    document.getElementById('wifiPassword').focus();
+    openWiFiModal('add', ssid);
   }
   
-  // Add WiFi network
-  function addWiFiNetwork() {
-    const ssid = document.getElementById('wifiSSID').value.trim();
-    const password = document.getElementById('wifiPassword').value.trim();
-    const priority = parseInt(document.getElementById('wifiPriority').value);
-    const statusDiv = document.getElementById('wifiAddStatus');
+  // WiFi Modal Functions
+  let wifiModalMode = 'add';
+  let wifiModalOriginalSSID = '';
+  
+  function openWiFiModal(mode, ssid = '', priority = 4) {
+    wifiModalMode = mode;
+    wifiModalOriginalSSID = ssid;
     
+    const modal = document.getElementById('wifiModal');
+    const title = document.getElementById('wifiModalTitle');
+    const saveText = document.getElementById('wifiModalSaveText');
+    const ssidInput = document.getElementById('modalSSID');
+    const passwordInput = document.getElementById('modalPassword');
+    const priorityInput = document.getElementById('modalPriority');
+    const statusDiv = document.getElementById('modalStatus');
+    
+    // Clear status
+    statusDiv.classList.add('hidden');
+    
+    if (mode === 'add') {
+      title.innerHTML = '<i class="fas fa-wifi mr-2"></i>Add Network';
+      saveText.textContent = 'Add';
+      ssidInput.value = ssid;
+      ssidInput.disabled = false;
+      passwordInput.value = '';
+      passwordInput.placeholder = 'Enter password';
+      priorityInput.value = priority;
+    } else {
+      title.innerHTML = '<i class="fas fa-edit mr-2"></i>Edit Network';
+      saveText.textContent = 'Save';
+      ssidInput.value = ssid;
+      ssidInput.disabled = true;
+      passwordInput.value = '';
+      passwordInput.placeholder = 'Leave blank to keep existing';
+      priorityInput.value = priority;
+    }
+    
+    modal.classList.remove('hidden');
+  }
+  
+  function closeWiFiModal(event) {
+    // Allow closing by clicking backdrop or calling directly
+    if (event && event.target.id !== 'wifiModal') return;
+    document.getElementById('wifiModal').classList.add('hidden');
+  }
+  
+  function saveWiFiModal() {
+    const ssid = document.getElementById('modalSSID').value.trim();
+    const password = document.getElementById('modalPassword').value.trim();
+    const priority = parseInt(document.getElementById('modalPriority').value);
+    const statusDiv = document.getElementById('modalStatus');
+    const saveBtn = document.getElementById('wifiModalSaveBtn');
+    
+    // Validation
     if (!ssid) {
-      showStatus(statusDiv, 'Please enter an SSID', 'error');
+      showModalStatus('Please enter an SSID', 'error');
       return;
     }
     
-    if (!password) {
-      showStatus(statusDiv, 'Please enter a password', 'error');
+    if (wifiModalMode === 'add' && !password) {
+      showModalStatus('Please enter a password', 'error');
       return;
     }
     
-    statusDiv.className = 'mt-2 p-3 bg-blue-100 dark:bg-blue-900/20 border-l-4 border-blue-500 text-blue-700 dark:text-blue-300';
-    statusDiv.textContent = 'Adding network...';
-    statusDiv.classList.remove('hidden');
+    if (isNaN(priority) || priority < 0 || priority > 99) {
+      showModalStatus('Priority must be between 0 and 99', 'error');
+      return;
+    }
     
-    fetch('/api/wifi/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ssid, password, priority })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          showStatus(statusDiv, data.message, 'success');
-          // Clear form
-          document.getElementById('wifiSSID').value = '';
-          document.getElementById('wifiPassword').value = '';
-          document.getElementById('wifiPriority').value = '4';
-          // Reload lists
-          setTimeout(() => {
-            loadSavedNetworks();
-            loadCurrentNetwork();
-          }, 2000);
-        } else {
-          showStatus(statusDiv, data.message, 'error');
-        }
+    // Disable save button
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+    showModalStatus('Saving changes...', 'info');
+    
+    if (wifiModalMode === 'edit') {
+      // For edit: delete and re-add
+      fetch('/api/wifi/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid: wifiModalOriginalSSID })
       })
-      .catch(err => {
-        showStatus(statusDiv, 'Failed to add network: ' + err.message, 'error');
-      });
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // If password not provided, we can't re-add (need error handling from backend)
+            const addPayload = password 
+              ? { ssid, password, priority }
+              : { ssid, priority }; // Backend should handle this
+            
+            return fetch('/api/wifi/add', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(addPayload)
+            });
+          } else {
+            throw new Error(data.message);
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showModalStatus('Network updated successfully!', 'success');
+            setTimeout(() => {
+              closeWiFiModal();
+              loadSavedNetworks();
+              loadCurrentNetwork();
+            }, 1500);
+          } else {
+            throw new Error(data.message);
+          }
+        })
+        .catch(err => {
+          showModalStatus('Failed to update: ' + err.message, 'error');
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Save';
+        });
+    } else {
+      // For add: just add
+      fetch('/api/wifi/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ssid, password, priority })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showModalStatus('Network added successfully!', 'success');
+            setTimeout(() => {
+              closeWiFiModal();
+              loadSavedNetworks();
+              loadCurrentNetwork();
+            }, 1500);
+          } else {
+            throw new Error(data.message);
+          }
+        })
+        .catch(err => {
+          showModalStatus('Failed to add: ' + err.message, 'error');
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Add';
+        });
+    }
   }
   
-  // Update network priority
-  function updateNetworkPriority(ssid, newPriority) {
-    if (isNaN(newPriority) || newPriority < 0 || newPriority > 99) {
-      alert('Priority must be a number between 0 and 99');
-      return;
-    }
-    
-    // For now, we'll delete and re-add with new priority
-    // Get the password from the user since we need it to re-add
-    const password = prompt(`To change priority, we need to re-add the network.\n\nEnter password for "${ssid}":`);
-    if (!password) {
-      alert('Password required to update priority');
-      return;
-    }
-    
-    // Delete old entry
-    fetch('/api/wifi/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ssid })
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          // Re-add with new priority
-          return fetch('/api/wifi/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ssid, password, priority: newPriority })
-          });
-        } else {
-          throw new Error(data.message);
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          alert(`Priority updated to ${newPriority}`);
-          loadSavedNetworks();
-        } else {
-          alert('Error updating priority: ' + data.message);
-        }
-      })
-      .catch(err => {
-        alert('Failed to update priority: ' + err.message);
-        loadSavedNetworks(); // Reload to show current state
-      });
+  function showModalStatus(message, type) {
+    const statusDiv = document.getElementById('modalStatus');
+    const colors = {
+      success: 'bg-green-100 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-300',
+      error: 'bg-red-100 dark:bg-red-900/20 border-red-500 text-red-700 dark:text-red-300',
+      info: 'bg-blue-100 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300'
+    };
+    statusDiv.className = `p-3 border-l-4 ${colors[type] || colors.info}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('hidden');
   }
   
   // Delete WiFi network
@@ -1499,29 +1697,33 @@
               <div class="flex-1">
                 <div class="font-medium">${escapedSSID}</div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">
-                  Priority: 
-                  <span class="priority-value font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:underline" 
-                    title="Click to change priority">${network.priority}</span>
-                  <span class="text-gray-400 text-xs">(${network.priority >= 10 ? 'highest' : network.priority >= 5 ? 'high' : network.priority >= 2 ? 'medium' : 'low'})</span>
+                  Priority: <span class="font-semibold">${network.priority}</span>
+                  <span class="text-gray-400">(${network.priority >= 10 ? 'highest' : network.priority >= 5 ? 'high' : network.priority >= 2 ? 'medium' : 'low'})</span>
                 </div>
               </div>
-              <button class="delete-network-btn text-red-500 hover:text-red-600 px-2 py-1 text-sm">
-                <i class="fas fa-trash"></i>
-              </button>
+              <div class="flex gap-1">
+                <button class="edit-network-btn text-blue-500 hover:text-blue-600 px-2 py-1 text-sm" title="Edit network">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-network-btn text-red-500 hover:text-red-600 px-2 py-1 text-sm" title="Delete network">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             `;
             
-            // Add priority click handler
-            const prioritySpan = networkEl.querySelector('.priority-value');
-            prioritySpan.addEventListener('click', () => {
-              const newPriority = prompt(`Change priority for "${network.ssid}"\n\nCurrent: ${network.priority}\nEnter new priority (0-99, higher = preferred):`, network.priority);
-              if (newPriority !== null && newPriority !== '') {
-                updateNetworkPriority(network.ssid, parseInt(newPriority));
-              }
+            // Add edit handler
+            const editBtn = networkEl.querySelector('.edit-network-btn');
+            editBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              openWiFiModal('edit', network.ssid, network.priority);
             });
             
             // Add delete handler
             const deleteBtn = networkEl.querySelector('.delete-network-btn');
-            deleteBtn.addEventListener('click', () => deleteWiFiNetwork(network.ssid));
+            deleteBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              deleteWiFiNetwork(network.ssid);
+            });
             
             savedDiv.appendChild(networkEl);
           });
@@ -1556,6 +1758,112 @@
     setTimeout(() => {
       div.classList.add('hidden');
     }, 5000);
+  }
+
+  // Password Protection Modal Functions
+  function openPasswordModal() {
+    const modal = document.getElementById('passwordModal');
+    const statusDiv = document.getElementById('passwordModalStatus');
+    
+    // Clear inputs and status
+    document.getElementById('modalWebPassword').value = '';
+    document.getElementById('modalWebPasswordConfirm').value = '';
+    statusDiv.classList.add('hidden');
+    
+    modal.classList.remove('hidden');
+  }
+  
+  function closePasswordModal(event) {
+    if (event && event.target.id !== 'passwordModal') return;
+    document.getElementById('passwordModal').classList.add('hidden');
+  }
+  
+  function showPasswordModalStatus(message, type) {
+    const statusDiv = document.getElementById('passwordModalStatus');
+    const colors = {
+      success: 'bg-green-100 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-300',
+      error: 'bg-red-100 dark:bg-red-900/20 border-red-500 text-red-700 dark:text-red-300',
+      info: 'bg-blue-100 dark:bg-blue-900/20 border-blue-500 text-blue-700 dark:text-blue-300'
+    };
+    statusDiv.className = `p-3 border-l-4 ${colors[type] || colors.info}`;
+    statusDiv.textContent = message;
+    statusDiv.classList.remove('hidden');
+  }
+  
+  function savePasswordModal() {
+    const password = document.getElementById('modalWebPassword').value.trim();
+    const passwordConfirm = document.getElementById('modalWebPasswordConfirm').value.trim();
+    const saveBtn = document.getElementById('passwordModalSaveBtn');
+    
+    // Validation
+    if (!password) {
+      showPasswordModalStatus('Please enter a password', 'error');
+      return;
+    }
+    
+    if (password.length < 6) {
+      showPasswordModalStatus('Password must be at least 6 characters', 'error');
+      return;
+    }
+    
+    if (password !== passwordConfirm) {
+      showPasswordModalStatus('Passwords do not match', 'error');
+      return;
+    }
+    
+    // Final confirmation
+    if (!confirm('Enable password protection? Changes take effect immediately and you will need this password to access the web UI.')) {
+      return;
+    }
+    
+    // Disable save button
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+    showPasswordModalStatus('Applying password protection...', 'info');
+    
+    fetch('/api/password/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showPasswordModalStatus('Password protection enabled successfully!', 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 1500);
+        } else {
+          throw new Error(data.message);
+        }
+      })
+      .catch(err => {
+        showPasswordModalStatus('Failed to set password: ' + err.message, 'error');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Secure';
+      });
+  }
+  
+  function removePassword() {
+    if (!confirm('Remove password protection? The web UI will be accessible without a password.')) {
+      return;
+    }
+    
+    fetch('/api/password/remove', {
+      method: 'POST'
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert('Password protection removed successfully!');
+          location.reload();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      })
+      .catch(err => {
+        alert('Failed to remove password: ' + err.message);
+      });
   }
 
   // Tooltip functionality for mobile and desktop
