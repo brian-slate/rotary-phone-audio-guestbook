@@ -9,12 +9,12 @@ A Raspberry Pi-based audio guestbook system that transforms a vintage rotary pho
 ## Hardware & Environment
 
 - **Device**: Raspberry Pi Zero W (single-core, limited resources)
-- **Hostname**: `camphone` or `camphone.local`
+- **Hostname**: `blackbox` or `blackbox.local`
 - **SSH**: Key-based authentication
   ```bash
-  ssh admin@camphone
+  ssh admin@blackbox
   ```
-- **Web Interface**: http://camphone.local:8080
+- **Web Interface**: http://blackbox.local:8080
 - **Components**: Rotary phone, hook switch, audio interface, WS2811 LED strip
 
 ## Project Structure
@@ -81,7 +81,7 @@ openai_compress_audio: true                 # 98% bandwidth savings
 **Syncs code + installs dependencies + restarts services**
 
 ```bash
-./deploy.sh camphone
+./deploy.sh blackbox
 ```
 
 This script:
@@ -95,35 +95,35 @@ This script:
 **Only syncs code, no restart**
 
 ```bash
-./sync-to-pi.sh camphone
+./sync-to-pi.sh blackbox
 ```
 
 Then manually restart if needed:
 ```bash
-ssh admin@camphone "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
+ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
 ```
 
 ### After Deployment
 
 1. **Check service status**:
    ```bash
-   ssh admin@camphone "sudo systemctl status audioGuestBook.service audioGuestBookWebServer.service"
+   ssh admin@blackbox "sudo systemctl status audioGuestBook.service audioGuestBookWebServer.service"
    ```
 
 2. **Monitor logs**:
    ```bash
-   ssh admin@camphone
+   ssh admin@blackbox
    sudo journalctl -u audioGuestBook.service -f
    # Look for "AI processing queue initialized" message
    ```
 
-3. **Test web interface**: http://camphone:8080
+3. **Test web interface**: http://blackbox:8080
 
 ## Common Development Tasks
 
 ### View Logs (Real-time)
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 # Main application logs
 sudo journalctl -u audioGuestBook.service -f
 
@@ -136,28 +136,28 @@ sudo journalctl -u audioGuestBook.service -f | grep -i "openai\|processing\|comp
 
 ### Restart Services
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 sudo systemctl restart audioGuestBook.service
 sudo systemctl restart audioGuestBookWebServer.service
 ```
 
 ### Check System Resources (Pi Zero W)
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 htop  # CPU and memory usage
 ```
 
 ### Backup Recordings
 ```bash
 # Pull recordings from Pi to local
-rsync -avz admin@camphone:/home/admin/rotary-phone-audio-guestbook/recordings/ ./local-backup/
+rsync -avz admin@blackbox:/home/admin/rotary-phone-audio-guestbook/recordings/ ./local-backup/
 
 # Also backs up metadata JSON
 ```
 
 ### Test Audio
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 # Test playback
 aplay -D plughw:1,0 /home/admin/rotary-phone-audio-guestbook/sounds/greetings/default.wav
 
@@ -192,10 +192,10 @@ amixer get Speaker
 ```bash
 # Edit locally, then deploy
 vim config.yaml
-./deploy.sh camphone
+./deploy.sh blackbox
 
 # Or edit directly on Pi
-ssh admin@camphone
+ssh admin@blackbox
 nano /home/admin/rotary-phone-audio-guestbook/config.yaml
 # Restart service for changes to take effect
 ```
@@ -272,7 +272,7 @@ openai_allow_processing_during_call: false
 
 ### Services Won't Start
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 sudo systemctl status audioGuestBook.service
 sudo journalctl -u audioGuestBook.service --no-pager -n 100
 ```
@@ -280,7 +280,7 @@ sudo journalctl -u audioGuestBook.service --no-pager -n 100
 ### OpenAI Processing Not Working
 ```bash
 # Check if enabled
-ssh admin@camphone
+ssh admin@blackbox
 grep "openai_enabled" /home/admin/rotary-phone-audio-guestbook/config.yaml
 
 # Check logs for errors
@@ -293,7 +293,7 @@ which ffmpeg
 
 ### FFmpeg Not Found
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 sudo apt-get update
 sudo apt-get install ffmpeg
 ```
@@ -364,7 +364,7 @@ git commit -m "Description of changes"
 git push brian-slate openai-tts-implementation
 
 # Deploy to test
-./deploy.sh camphone
+./deploy.sh blackbox
 ```
 
 ## Warp AI Guidelines
@@ -385,25 +385,25 @@ When assisting with this project:
 
 ```bash
 # Deploy with dependencies
-./deploy.sh camphone
+./deploy.sh blackbox
 
 # Quick sync only
-./sync-to-pi.sh camphone
+./sync-to-pi.sh blackbox
 
 # View logs
-ssh admin@camphone "sudo journalctl -u audioGuestBook.service -f"
+ssh admin@blackbox "sudo journalctl -u audioGuestBook.service -f"
 
 # Restart services
-ssh admin@camphone "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
+ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
 
 # Check status
-ssh admin@camphone "sudo systemctl status audioGuestBook.service audioGuestBookWebServer.service"
+ssh admin@blackbox "sudo systemctl status audioGuestBook.service audioGuestBookWebServer.service"
 
 # Monitor resources
-ssh admin@camphone "htop"
+ssh admin@blackbox "htop"
 
 # Edit config
-vim config.yaml && ./deploy.sh camphone
+vim config.yaml && ./deploy.sh blackbox
 ```
 
 ## Dependencies
@@ -428,7 +428,7 @@ Managed via `pyproject.toml` and `requirements.txt`:
 
 Install with:
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 pip3 install -r requirements.txt
 ```
 

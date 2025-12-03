@@ -71,7 +71,7 @@ If you need to add a package:
 
 ```bash
 # SSH into Pi
-ssh admin@camphone
+ssh admin@blackbox
 
 # Activate venv
 cd ~/rotary-phone-audio-guestbook
@@ -112,14 +112,14 @@ All dependencies are pinned to specific versions.
 
 Check which Python is running:
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 sudo systemctl status audioGuestBook.service
 # Look for: ExecStart=/home/admin/.../.venv/bin/python3
 ```
 
 Verify venv has packages:
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 /home/admin/rotary-phone-audio-guestbook/.venv/bin/pip list
 ```
 
@@ -127,7 +127,7 @@ ssh admin@camphone
 
 Check group membership:
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 groups
 # Should include: admin gpio
 ```
@@ -142,7 +142,7 @@ sudo usermod -a -G gpio admin
 
 This shouldn't happen since they share a venv, but if it does:
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 cd ~/rotary-phone-audio-guestbook
 source .venv/bin/activate
 pip install --force-reinstall -r requirements.txt
@@ -171,9 +171,9 @@ pip install --force-reinstall -r requirements.txt
 If upgrading from old setup:
 ```bash
 # Remove old system packages (optional cleanup)
-ssh admin@camphone
+ssh admin@blackbox
 sudo pip3 uninstall openai requests
 
 # Deploy new version
-./deploy.sh camphone
+./deploy.sh blackbox
 ```

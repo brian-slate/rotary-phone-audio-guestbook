@@ -1,7 +1,7 @@
 {
   "name": "rotary-phone-audio-guestbook",
   "version": "1.0.0",
-  "description": "This project transforms a rotary phone into a voice recorder for use at special events (i.e. wedding audio guestbook, etc.).",
+  "description": "BLACK BOX - A retro-modern voice recording system using a vintage rotary phone."
   "main": "index.js",
   "directories": {
     "test": "tests"

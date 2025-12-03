@@ -40,24 +40,31 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'sans': ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
+        'mono': ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
+      },
       colors: {
-        // Light mode colors
-        primary: '#94A3B8',      // Soft slate blue
-        secondary: '#E2E8F0',    // Light gray-blue
-        accent: '#CBD5E1',       // Subtle blue-gray
-        highlight: '#BFDBFE',    // Soft pastel blue
-        background: '#F8FAFC',   // Off-white
-        surface: '#F1F5F9',      // Subtle gray
-        text: '#334155',         // Dark slate
+        // Label Maker Light Mode (white background, black text, yellow accents)
+        primary: '#FCD34D',      // Bright yellow
+        secondary: '#FEFCE8',    // Very light yellow
+        accent: '#EAB308',       // Golden yellow
+        highlight: '#FDE047',    // Light yellow
+        background: '#FFFFFF',   // Pure white
+        surface: '#FAFAF9',      // Off-white
+        text: '#1C1917',         // Almost black
+        'text-primary': '#1C1917',
 
-        // Dark Mode colors - flattened structure for easier use with Tailwind
-        'dark-primary': '#64748B',    // Lightened primary
-        'dark-secondary': '#475569',  // Lightened secondary
-        'dark-accent': '#94A3B8',     // Brightened accent
-        'dark-highlight': '#93C5FD',  // Brighter highlight
-        'dark-background': '#0F172A', // Deep navy blue
-        'dark-surface': '#1E293B',    // Dark blue-gray
-        'dark-text': '#F1F5F9',       // Much lighter text (almost white)
+        // Label Maker Dark Mode (black background, white text, yellow accents)
+        'dark-primary': '#1C1917',    // Almost black
+        'dark-secondary': '#292524',  // Dark gray
+        'dark-accent': '#FCD34D',     // Bright yellow
+        'dark-highlight': '#FDE047',  // Light yellow
+        'dark-background': '#0C0A09', // Pure black
+        'dark-surface': '#1C1917',    // Almost black
+        'dark-text': '#FAFAF9',       // Off-white
+        'dark-input-background': '#292524',
+        'dark-input-text': '#FAFAF9',
       },
     },
   },

@@ -156,11 +156,11 @@ Recording: `2025-12-01T23:49:37.152753.wav`
 If upgrading from pre-v2.1:
 ```bash
 # Remove old system packages (optional)
-ssh admin@camphone
+ssh admin@blackbox
 sudo pip3 uninstall openai requests pyyaml
 
 # Deploy new version
-./deploy.sh camphone
+./deploy.sh blackbox
 
 # Service will recreate venv and install all deps
 ```

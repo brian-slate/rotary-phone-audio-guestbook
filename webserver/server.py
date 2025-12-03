@@ -1034,7 +1034,7 @@ def delete_recordings():
 
 if __name__ == "__main__":
     # Print summary of configuration for debugging
-    logger.info("=== Starting Audio Guestbook Server ===")
+    logger.info("=== Starting BLACK BOX Server ===")
     logger.info(f"Static files location: {STATIC_DIR}")
     logger.info(f"Recordings location: {recordings_path}")
     logger.info("=====================================")

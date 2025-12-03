@@ -1,5 +1,5 @@
 [Unit]
-Description=Rotary Phone Audio Guestbook Web Server
+Description=BLACK BOX Web Server
 After=network.target
 
 [Service]

@@ -4,8 +4,8 @@
 
 | Task | Script | When to Use |
 |------|--------|-------------|
-| Full deployment with dependencies | `./deploy.sh camphone` | First deploy, dependency changes, significant updates |
-| Quick code sync for iteration | `./sync-to-pi.sh camphone` | Rapid development, minor code changes |
+| Full deployment with dependencies | `./deploy.sh blackbox` | First deploy, dependency changes, significant updates |
+| Quick code sync for iteration | `./sync-to-pi.sh blackbox` | Rapid development, minor code changes |
 
 ## deploy.sh - Full Deployment
 
@@ -26,8 +26,8 @@
 
 **Example:**
 ```bash
-./deploy.sh camphone
-./deploy.sh camphone --backup  # Also create system backup
+./deploy.sh blackbox
+./deploy.sh blackbox --backup  # Also create system backup
 ```
 
 **Key feature:** Uses `scripts/merge_config.py` to safely merge config changes without losing user settings like API keys, GPIO pins, etc.
@@ -46,9 +46,9 @@
 
 **Example:**
 ```bash
-./sync-to-pi.sh camphone
+./sync-to-pi.sh blackbox
 # Then manually restart if needed:
-ssh admin@camphone "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
+ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
 ```
 
 **Key feature:** Fast - no waiting for apt-get or pip install
@@ -68,7 +68,7 @@ This means **your Pi's config.yaml is NEVER overwritten** by either script. Your
 If you add new config fields:
 
 1. Update `config.yaml.template` with new fields and defaults
-2. Run `./deploy.sh camphone`
+2. Run `./deploy.sh blackbox`
 3. The merge script will:
    - Keep all your existing settings
    - Add only the new fields with their default values
@@ -82,22 +82,22 @@ If you add new config fields:
 vim webserver/server.py
 
 # Quick sync
-./sync-to-pi.sh camphone
+./sync-to-pi.sh blackbox
 
 # Restart service to test
-ssh admin@camphone "sudo systemctl restart audioGuestBookWebServer.service"
+ssh admin@blackbox "sudo systemctl restart audioGuestBookWebServer.service"
 
 # Check logs
-ssh admin@camphone "sudo journalctl -u audioGuestBookWebServer.service -f"
+ssh admin@blackbox "sudo journalctl -u audioGuestBookWebServer.service -f"
 ```
 
 **For releases:**
 ```bash
 # Full deploy with all checks
-./deploy.sh camphone
+./deploy.sh blackbox
 
 # Optional: Create backup
-./deploy.sh camphone --backup
+./deploy.sh blackbox --backup
 ```
 
 ## Troubleshooting
@@ -110,13 +110,13 @@ ssh admin@camphone "sudo journalctl -u audioGuestBookWebServer.service -f"
 **If you accidentally deleted config.yaml on Pi:**
 ```bash
 # Copy template as starting point
-ssh admin@camphone "cp config.yaml.template config.yaml"
+ssh admin@blackbox "cp config.yaml.template config.yaml"
 # Edit to add your settings
-ssh admin@camphone "nano config.yaml"
+ssh admin@blackbox "nano config.yaml"
 ```
 
 **To see what files would be synced:**
 ```bash
-rsync -avzn --exclude-from='./rsync-exclude.txt' ./ admin@camphone:/home/admin/rotary-phone-audio-guestbook/
+rsync -avzn --exclude-from='./rsync-exclude.txt' ./ admin@blackbox:/home/admin/rotary-phone-audio-guestbook/
 # The -n flag is dry-run mode
 ```

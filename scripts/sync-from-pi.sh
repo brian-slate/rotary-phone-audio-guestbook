@@ -3,7 +3,7 @@
 # Run this from your Mac in the project root directory
 
 PI_USER="admin"
-PI_HOST="camphone.local"
+PI_HOST="blackbox.local"
 PI_PROJECT_DIR="/home/admin/rotary-phone-audio-guestbook"
 
 echo "Syncing from Pi to local Mac..."

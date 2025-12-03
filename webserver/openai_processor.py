@@ -158,7 +158,8 @@ class AudioProcessor:
                 language=self.language if self.language != 'auto' else None,
                 response_format="text"
             )
-        return transcript
+        # Strip all leading/trailing whitespace including tabs and newlines
+        return transcript.strip()
     
     def _extract_metadata_with_gpt_retry(self, transcription: str) -> dict:
         """Extract metadata with GPT with retry logic."""

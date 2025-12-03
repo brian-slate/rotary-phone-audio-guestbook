@@ -1,6 +1,6 @@
 # Helper Scripts
 
-This folder contains useful scripts for managing the Rotary Phone Audio Guestbook.
+This folder contains useful scripts for managing BLACK BOX.
 
 ## Scripts
 

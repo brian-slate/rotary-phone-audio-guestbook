@@ -203,7 +203,7 @@ class AudioGuestBook:
         if self.pixels is None:
             return
         
-        logger.info("Guestbook ready - showing ready state LED")
+        logger.info("BLACK BOX ready - showing ready state LED")
         
         # Clear any boot animation and go straight to ready state
         self.pixels.fill((0, 0, 0))

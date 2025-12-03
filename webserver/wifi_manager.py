@@ -264,22 +264,25 @@ class WiFiManager:
             if not psk_line:
                 return False, "Failed to generate encrypted password"
             
-            # Create network block
-            network_block = f'''
-network={{
-\tssid="{ssid}"
-\t{psk_line}
-\tpriority={priority}
-}}
-'''
+            # Create network block with proper tabs
+            network_block = f"network={{\n\tssid=\"{ssid}\"\n\t{psk_line}\n\tpriority={priority}\n}}\n"
             
-            # Append to wpa_supplicant.conf
-            append_cmd = f'echo "{network_block}" | sudo tee -a {WiFiManager.WPA_SUPPLICANT_CONF} > /dev/null'
-            subprocess.run(
-                ["bash", "-c", append_cmd],
-                check=True,
-                timeout=5
-            )
+            # Write to temp file first to preserve formatting
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as tmp:
+                tmp.write(network_block)
+                tmp_path = tmp.name
+            
+            try:
+                # Append temp file to wpa_supplicant.conf
+                subprocess.run(
+                    ["sudo", "bash", "-c", f"cat {tmp_path} >> {WiFiManager.WPA_SUPPLICANT_CONF}"],
+                    check=True,
+                    timeout=5
+                )
+            finally:
+                import os
+                os.unlink(tmp_path)
             
             # Reconfigure wpa_supplicant to apply changes
             subprocess.run(
@@ -328,7 +331,7 @@ network={{
             skip_network = False
             found_network = False
             in_network_block = False
-            current_network_ssid = None
+            network_block_start_line = None
             
             for line in lines:
                 stripped = line.strip()
@@ -337,7 +340,8 @@ network={{
                 if stripped.startswith('network={'):
                     in_network_block = True
                     skip_network = False
-                    current_network_ssid = None
+                    network_block_start_line = len(new_lines)  # Remember where this block starts
+                    new_lines.append(line)  # Tentatively add it
                 
                 # Check SSID line within network block
                 elif in_network_block and stripped.startswith('ssid='):
@@ -346,33 +350,45 @@ network={{
                     if current_network_ssid == ssid:
                         skip_network = True
                         found_network = True
+                        # Remove the network={ line we already added
+                        if network_block_start_line is not None:
+                            del new_lines[network_block_start_line:]
+                    else:
+                        new_lines.append(line)
                 
                 # Check end of network block
                 elif stripped == '}' and in_network_block:
                     in_network_block = False
-                    if skip_network:
-                        # Skip the closing brace too
-                        skip_network = False
-                        continue
-                    else:
+                    if not skip_network:
                         new_lines.append(line)
-                    continue
+                    skip_network = False
+                    network_block_start_line = None
                 
-                # Add line if not skipping
-                if not skip_network:
+                # Add line if not skipping and not already handled
+                elif not skip_network:
                     new_lines.append(line)
             
             if not found_network:
                 return False, f"Network '{ssid}' not found in configuration"
             
-            # Write updated config
+            # Write updated config using temp file to preserve formatting
             new_config = '\n'.join(new_lines)
-            write_cmd = f'echo "{new_config}" | sudo tee {WiFiManager.WPA_SUPPLICANT_CONF} > /dev/null'
-            subprocess.run(
-                ["bash", "-c", write_cmd],
-                check=True,
-                timeout=5
-            )
+            
+            import tempfile
+            import os
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as tmp:
+                tmp.write(new_config)
+                tmp_path = tmp.name
+            
+            try:
+                # Copy temp file to wpa_supplicant.conf
+                subprocess.run(
+                    ["sudo", "cp", tmp_path, WiFiManager.WPA_SUPPLICANT_CONF],
+                    check=True,
+                    timeout=5
+                )
+            finally:
+                os.unlink(tmp_path)
             
             # Reconfigure wpa_supplicant
             subprocess.run(

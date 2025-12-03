@@ -4,7 +4,7 @@
 
 # Raspberry Pi (target device)
 RPI_USER="admin"
-RPI_HOST="${1:-camphone}"  # Use provided hostname/IP or default to camphone
+RPI_HOST="${1:-blackbox}"  # Use provided hostname/IP or default to blackbox
 RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 RPI_SYSTEMD_DIR="/etc/systemd/system"
 

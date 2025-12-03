@@ -5,7 +5,7 @@
 
 # Raspberry Pi settings
 RPI_USER="admin"
-RPI_HOST="${1:-camphone}"  # Use provided hostname/IP or default to camphone
+RPI_HOST="${1:-blackbox}"  # Use provided hostname/IP or default to blackbox
 RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 
 echo "=== Syncing code to Raspberry Pi at ${RPI_HOST} ==="

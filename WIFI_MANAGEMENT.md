@@ -2,7 +2,7 @@
 
 ## Overview
 
-The rotary phone audio guestbook now supports managing WiFi networks directly from the web interface. This makes it easy to add venue WiFi networks on-site without needing SSH access.
+BLACK BOX now supports managing WiFi networks directly from the web interface. This makes it easy to add venue WiFi networks on-site without needing SSH access.
 
 ## Features
 
@@ -17,7 +17,7 @@ The rotary phone audio guestbook now supports managing WiFi networks directly fr
 ### On-Site Setup (Recommended)
 
 1. **Connect to your mobile hotspot** (which should already be saved with high priority)
-2. **Open web UI**: Navigate to `http://camphone.local:8080/config`
+2. **Open web UI**: Navigate to `http://blackbox.local:8080/config`
 3. **Scan for venue WiFi**: Click the "Scan" button in the WiFi Networks section
 4. **Add venue network**:
    - Click on the network name (or manually enter SSID)
@@ -33,7 +33,7 @@ You can pre-configure networks before going to an event:
 
 ```bash
 # SSH into the Pi
-ssh admin@camphone
+ssh admin@blackbox
 
 # Run the add-wifi script
 ~/rotary-phone-audio-guestbook/scripts/add-wifi
@@ -80,7 +80,7 @@ This is configured in `/etc/sudoers.d/wifi-manager` on the Pi.
 Run the full deploy script which will configure everything:
 
 ```bash
-./deploy.sh camphone
+./deploy.sh blackbox
 ```
 
 This will:
@@ -93,7 +93,7 @@ This will:
 If you need to manually configure sudo permissions:
 
 ```bash
-ssh admin@camphone
+ssh admin@blackbox
 cd ~/rotary-phone-audio-guestbook
 bash scripts/configure-wifi-sudo.sh
 ```
@@ -106,7 +106,7 @@ bash scripts/configure-wifi-sudo.sh
 
 **Fix**: Run the sudo configuration script:
 ```bash
-ssh admin@camphone "bash ~/rotary-phone-audio-guestbook/scripts/configure-wifi-sudo.sh"
+ssh admin@blackbox "bash ~/rotary-phone-audio-guestbook/scripts/configure-wifi-sudo.sh"
 ```
 
 ### "Failed to add network" error
@@ -116,7 +116,7 @@ ssh admin@camphone "bash ~/rotary-phone-audio-guestbook/scripts/configure-wifi-s
 **Fix**: 
 1. Verify the password is correct
 2. Check sudo permissions are configured
-3. Check logs: `ssh admin@camphone "sudo journalctl -u audioGuestBookWebServer.service -n 50"`
+3. Check logs: `ssh admin@blackbox "sudo journalctl -u audioGuestBookWebServer.service -n 50"`
 
 ### Network doesn't connect after adding
 
@@ -125,7 +125,7 @@ ssh admin@camphone "bash ~/rotary-phone-audio-guestbook/scripts/configure-wifi-s
 **Fix**:
 1. Delete and re-add the network with correct password
 2. Check saved networks list to verify priority
-3. Try manual connection: `ssh admin@camphone "sudo wpa_cli -i wlan0 reconfigure"`
+3. Try manual connection: `ssh admin@blackbox "sudo wpa_cli -i wlan0 reconfigure"`
 
 ### Can't access web UI after changing networks
 
