@@ -2,6 +2,7 @@
 
 import logging
 import os
+import subprocess
 import sys
 import threading
 import random
@@ -204,6 +205,16 @@ class AudioGuestBook:
             return
         
         logger.info("BLACK BOX ready - showing ready state LED")
+        
+        # Stop the boot LED service now that we're ready
+        try:
+            subprocess.run(['systemctl', 'stop', 'bootLed.service'], check=False)
+            logger.info("Stopped boot LED service")
+        except Exception as e:
+            logger.warning(f"Failed to stop boot LED service: {e}")
+        
+        # Brief pause to avoid race condition with boot LED script
+        time.sleep(0.1)
         
         # Clear any boot animation and go straight to ready state
         self.pixels.fill((0, 0, 0))
@@ -643,6 +654,10 @@ class AudioGuestBook:
 
         # Ensure clean state by forcing stop of any existing processes
         self.stop_recording_and_playback()
+        
+        # Stop AI indicator if it's running (phone now active)
+        if self.ai_indicator_running:
+            self.led_stop_ai_indicator()
 
         # Check if we should enter record greeting mode
         if self.pending_greeting_record:
