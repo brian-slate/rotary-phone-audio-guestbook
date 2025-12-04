@@ -77,31 +77,75 @@ openai_compress_audio: true                 # 98% bandwidth savings
 
 ## Deployment Workflow
 
-### Option 1: Full Deploy (Recommended for updates)
-**Syncs code + installs dependencies + restarts services**
+Two deployment scripts available - choose based on what changed:
 
-```bash
-./deploy.sh blackbox
-```
-
-This script:
-1. Syncs all files to Pi
-2. Installs FFmpeg (for audio compression)
-3. Installs Python packages (`openai`, `requests`)
-4. Copies service files
-5. Restarts both services
-
-### Option 2: Quick Sync (For minor changes)
-**Only syncs code, no restart**
+### Quick Sync: `sync-to-pi.sh` (Preferred for most changes)
+**Fast file sync only - NO service restart, NO dependency install**
 
 ```bash
 ./sync-to-pi.sh blackbox
 ```
 
-Then manually restart if needed:
+**Use when:**
+- ✅ Changed Python code (`src/*.py`, `webserver/*.py`)
+- ✅ Updated templates or static files
+- ✅ Modified config files
+- ✅ Quick iteration during development
+- ✅ Testing changes without downtime
+
+**Pros:**
+- ⚡ **Fast** (~2-3 seconds)
+- 📡 No service interruption (keeps phone working)
+- 🔁 Can test with manual restart only if needed
+
+**After sync, restart only if needed:**
 ```bash
+# Test changes first, then restart if they require it:
 ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
 ```
+
+---
+
+### Full Deploy: `deploy.sh` (Required for dependencies/services)
+**Complete deployment - syncs + installs + restarts**
+
+```bash
+./deploy.sh blackbox
+```
+
+**Use when:**
+- 🔧 Added new Python dependencies (`requirements.txt` changed)
+- 📦 Need to install system packages (FFmpeg, etc.)
+- ⚙️ Modified systemd service files (`*.service`)
+- 🆕 First-time setup or major updates
+- 🏗️ Changed project structure
+
+**What it does:**
+1. Syncs all files to Pi
+2. Installs system dependencies (FFmpeg)
+3. Installs Python packages from `requirements.txt`
+4. Merges `config.yaml` (preserves user settings)
+5. Copies service files to systemd
+6. Restarts both services
+
+**Note:** Takes ~30-60 seconds, causes brief downtime
+
+---
+
+### Decision Tree
+
+```
+Did you change dependencies or service files?
+├─ Yes → Use deploy.sh
+└─ No → Use sync-to-pi.sh (then restart if needed)
+```
+
+**Examples:**
+- "Fixed LED bleeding bug" → `sync-to-pi.sh` + restart
+- "Added greeting mode dropdown" → `sync-to-pi.sh` + restart  
+- "Installed new openai package" → `deploy.sh`
+- "Changed systemd service config" → `deploy.sh`
+- "Updated HTML template" → `sync-to-pi.sh` (no restart needed)
 
 ### After Deployment
 
@@ -199,6 +243,29 @@ ssh admin@blackbox
 nano /home/admin/rotary-phone-audio-guestbook/config.yaml
 # Restart service for changes to take effect
 ```
+
+### Adding New Config Fields
+
+**IMPORTANT**: When adding new config options, you must update **BOTH** files:
+
+1. **`config.yaml`** - Your local config with the new field
+2. **`config.yaml.template`** - Template used by deploy script
+
+**Why both?**
+- `deploy.sh` merges config using the template as a reference
+- Fields only in `config.yaml` won't survive deployments
+- Fields only in template won't be editable in web UI initially
+
+**Example: Adding a new field**
+```yaml
+# Add to BOTH config.yaml and config.yaml.template:
+my_new_setting: default_value  # Description of what it does
+```
+
+**Web UI will automatically:**
+- Accept the new field from forms
+- Preserve user values during config saves
+- No code changes needed in `server.py`
 
 ## OpenAI Integration Details
 

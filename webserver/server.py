@@ -156,12 +156,8 @@ def update_config(form_data, skip_fields=None):
             logger.info(f"Skipping '{key}' - file was uploaded")
             continue
 
-        # Allow list_fields even if not present; otherwise ensure key exists
-        # Also allow new fields: invert_hook, greeting_mode
-        allowed_new_fields = {'invert_hook', 'greeting_mode'}
-        if key not in config and key not in list_fields and key not in allowed_new_fields:
-            logger.warning(f"Form field '{key}' not found in config, skipping")
-            continue
+        # Accept all form fields - if not in config, add as new field (string by default)
+        # This allows new config options without code changes
 
         # Log the conversion attempt
         logger.info(f"Updating '{key}': {config.get(key, 'Not set')} (type: {type(config.get(key, '')).__name__}) → '{value}'")
@@ -174,8 +170,8 @@ def update_config(form_data, skip_fields=None):
                 new_list = [item.strip() for item in parts if item and item.strip()]
                 config[key] = new_list
                 logger.info(f"Parsed CSV to list for {key}: {new_list}")
-            # Convert value based on the type in config or for new boolean fields
-            elif key == 'invert_hook' or isinstance(config.get(key), bool):
+            # Convert based on existing type in config, or detect boolean values
+            elif isinstance(config.get(key), bool) or value.lower() in ('true', 'false'):
                 # Convert string to boolean
                 new_value = (value.lower() == "true")
                 logger.info(f"Converting to boolean: {value} → {new_value}")

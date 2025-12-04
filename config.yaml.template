@@ -1,3 +1,14 @@
+# ============================================================================
+# Configuration Template for Rotary Phone Audio Guestbook
+# ============================================================================
+# IMPORTANT: When adding new config options, update BOTH files:
+#   1. config.yaml (your actual config)
+#   2. config.yaml.template (this file)
+#
+# Why? The deploy.sh script uses this template to merge configs safely,
+# preserving user settings while adding new default fields.
+# ============================================================================
+
 alsa_hw_mapping: plughw:1,0
 mixer_control_name: Speaker    # look at amixer scontrols for available controls
 format: cd # look at aplay --help for available formats
