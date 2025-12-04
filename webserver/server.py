@@ -88,7 +88,7 @@ def inject_template_variables():
     # Makes variables available to all templates
     return {
         "ai_processing_error": _read_last_openai_error(),
-        "version": "3.4.0",  # Remove openai_enabled, manual force-process improvements, bugfixes
+        "version": "3.5.0",  # Greeting modes, LED fixes, orphan processing, config UX
         "password_protected": bool(config.get('web_password', '').strip())
     }
 
