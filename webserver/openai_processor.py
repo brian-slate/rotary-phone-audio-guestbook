@@ -186,14 +186,29 @@ class AudioProcessor:
             ignored_names_note += f"\n   Example: If message says 'Cam, wishing you happiness', extract NO names (empty array)"
         
         categories_str = ", ".join(self.categories)
-        prompt = f"""Analyze this wedding/event guestbook message and extract:
+        prompt = f"""Analyze this guestbook voicemail and extract:
 
 1. Speaker names mentioned (full first and last names if available, otherwise just first names)
    - ONLY include people who are SPEAKING, CALLING, or introducing themselves as guests
    - Do NOT include recipients, hosts, or people being addressed{ignored_names_note}
 2. Emotional category (choose one: {categories_str})
-3. A brief 4-7 word title summarizing the message
+3. A short, specific title
+   - 6–8 words preferred; allow up to 14 if needed
+   - Title Case. No ending punctuation
+   - Use a concrete action + specific topic from the transcript (e.g., "Tests Microphone", "Shares Toast", "Plans Trip", "Demo Track")
+   - Prefer specific nouns (places, objects, details) over abstractions
+   - May include a proper noun if central; do not force it
+   - Do NOT use: message, voicemail, recording, random, things, just, really, today, nice
+   - Do NOT start with a speaker prefix like "Brian:"
 4. Confidence score (0.0-1.0) based on clarity
+
+Examples (do NOT copy; format is illustrative only):
+- Transcript snippet: "Catching the red‑eye to Syracuse, then drive to Lake Saranac"
+  Title: "Red‑Eye to Syracuse, Saranac Plans"
+- Transcript snippet: "Testing levels; mic might clip—one, two, three"
+  Title: "Testing Mic and Levels Before Start"
+- Transcript snippet: "Let me play this little loop I made"
+  Title: "Demo of New Audio Loop"
 
 Transcription:
 {transcription}
@@ -202,7 +217,7 @@ Respond ONLY with valid JSON in this exact format:
 {{
   "names": ["John Smith", "Jane Doe"],
   "category": "joyful",
-  "summary": "Brief message title here",
+  "summary": "Brief title here",
   "confidence": 0.95
 }}"""
         
