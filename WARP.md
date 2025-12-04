@@ -80,7 +80,7 @@ openai_compress_audio: true                 # 98% bandwidth savings
 Two deployment scripts available - choose based on what changed:
 
 ### Quick Sync: `sync-to-pi.sh` (Preferred for most changes)
-**Fast file sync only - NO service restart, NO dependency install**
+**Builds frontend locally (Tailwind/PostCSS), then fast file sync only - NO service restart, NO dependency install**
 
 ```bash
 ./sync-to-pi.sh blackbox
@@ -98,6 +98,8 @@ Two deployment scripts available - choose based on what changed:
 - 📡 No service interruption (keeps phone working)
 - 🔁 Can test with manual restart only if needed
 
+Frontend builds require Node.js/npm locally. The Pi does not build assets; it only serves generated files from `webserver/static/css`.
+
 **After sync, restart only if needed:**
 ```bash
 # Test changes first, then restart if they require it:
@@ -107,7 +109,7 @@ ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBook
 ---
 
 ### Full Deploy: `deploy.sh` (Required for dependencies/services)
-**Complete deployment - syncs + installs + restarts**
+**Builds frontend locally, then complete deployment - syncs + installs + restarts**
 
 ```bash
 ./deploy.sh blackbox
@@ -121,12 +123,13 @@ ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBook
 - 🏗️ Changed project structure
 
 **What it does:**
-1. Syncs all files to Pi
-2. Installs system dependencies (FFmpeg)
-3. Installs Python packages from `requirements.txt`
-4. Merges `config.yaml` (preserves user settings)
-5. Copies service files to systemd
-6. Restarts both services
+1. Builds frontend assets locally (Tailwind -> output.css, PostCSS/cssnano -> output.min.css)
+2. Syncs all files to Pi
+3. Installs system dependencies (FFmpeg)
+4. Installs Python packages from `requirements.txt`
+5. Merges `config.yaml` (preserves user settings)
+6. Copies service files to systemd
+7. Restarts both services
 
 **Note:** Takes ~30-60 seconds, causes brief downtime
 
@@ -474,6 +477,17 @@ vim config.yaml && ./deploy.sh blackbox
 ```
 
 ## Dependencies
+
+### Frontend tooling (local only)
+- Node.js + npm
+- Tailwind CSS, PostCSS, cssnano (installed via npm ci within webserver/ during deploy/sync)
+
+Build scripts (run automatically by deploy/sync):
+```bash
+cd webserver
+npm ci --no-audit --no-fund
+npm run build   # tailwind -> output.css, postcss -> output.min.css
+```
 
 ### System Packages (on Raspberry Pi)
 - `python3`, `python3-pip`
