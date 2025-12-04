@@ -18,8 +18,10 @@ from flask import (
     request,
     send_file,
     send_from_directory,
+    session,
     url_for,
 )
+from functools import wraps
 from ruamel.yaml import YAML
 
 # Set up logging and app configuration
@@ -67,12 +69,27 @@ def _clear_last_openai_error():
         logger.warning(f"Failed to clear last OpenAI error: {e}")
 
 
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if password protection is enabled
+        web_password = config.get('web_password', '')
+        if web_password and web_password.strip():
+            # Password protection is enabled, check if user is authenticated
+            if not session.get('authenticated'):
+                return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 @app.context_processor
 def inject_template_variables():
     # Makes variables available to all templates
     return {
         "ai_processing_error": _read_last_openai_error(),
-        "version": "3.4.0"  # Remove openai_enabled, manual force-process improvements, bugfixes
+        "version": "3.4.0",  # Remove openai_enabled, manual force-process improvements, bugfixes
+        "password_protected": bool(config.get('web_password', '').strip())
     }
 
 # Define other important paths
@@ -140,7 +157,9 @@ def update_config(form_data, skip_fields=None):
             continue
 
         # Allow list_fields even if not present; otherwise ensure key exists
-        if key not in config and key not in list_fields and key != 'invert_hook':
+        # Also allow new fields: invert_hook, greeting_mode
+        allowed_new_fields = {'invert_hook', 'greeting_mode'}
+        if key not in config and key not in list_fields and key not in allowed_new_fields:
             logger.warning(f"Form field '{key}' not found in config, skipping")
             continue
 
@@ -217,18 +236,98 @@ def convert_audio_to_wav(input_path, output_path, sample_rate=44100, channels=2)
         return False
 
 
+# Authentication routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Login page for password-protected web UI."""
+    web_password = config.get('web_password', '')
+    
+    # If no password set, redirect to main page
+    if not web_password or not web_password.strip():
+        return redirect(url_for('index'))
+    
+    if request.method == "POST":
+        password = request.form.get('password', '')
+        if password == web_password:
+            session['authenticated'] = True
+            session.permanent = True  # Keep session across browser restarts
+            next_url = request.args.get('next') or url_for('index')
+            return redirect(next_url)
+        else:
+            flash('Incorrect password', 'error')
+    
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    """Logout and clear session."""
+    session.pop('authenticated', None)
+    return redirect(url_for('login'))
+
+
+@app.route("/api/password/set", methods=["POST"])
+@login_required
+def set_password():
+    """Set or update web UI password."""
+    try:
+        data = request.get_json()
+        password = data.get('password', '').strip()
+        
+        if not password:
+            return jsonify({'success': False, 'message': 'Password cannot be empty'}), 400
+        
+        # Update config
+        config['web_password'] = password
+        
+        # Save to file
+        with config_path.open('w') as f:
+            yaml.dump(config, f)
+        
+        logger.info("Web UI password set/updated")
+        return jsonify({'success': True, 'message': 'Password protection enabled'})
+    except Exception as e:
+        logger.error(f"Error setting password: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route("/api/password/remove", methods=["POST"])
+@login_required
+def remove_password():
+    """Remove web UI password protection."""
+    try:
+        # Remove or clear password
+        config['web_password'] = ''
+        
+        # Save to file
+        with config_path.open('w') as f:
+            yaml.dump(config, f)
+        
+        # Clear session
+        session.pop('authenticated', None)
+        
+        logger.info("Web UI password protection disabled")
+        return jsonify({'success': True, 'message': 'Password protection disabled'})
+    except Exception as e:
+        logger.error(f"Error removing password: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route("/")
+@login_required
 def index():
     return render_template("index.html")
 
 
 @app.route("/<filename>", methods=["GET"])
+@login_required
 def download_file(filename):
     """Download a file dynamically from the recordings folder."""
     return send_from_directory(recordings_path, filename, as_attachment=True)
 
 
 @app.route("/delete/<filename>", methods=["POST"])
+@login_required
 def delete_file(filename):
     """Delete a specific recording."""
     file_path = recordings_path / filename
@@ -249,6 +348,7 @@ def delete_file(filename):
 
 
 @app.route("/api/recordings")
+@login_required
 def get_recordings():
     """API route to get a list of all recordings with AI metadata."""
     try:
@@ -403,6 +503,7 @@ def validate_openai_api_key(api_key):
             return False, f"Verification failed: {error_msg[:100]}"
 
 @app.route("/config", methods=["GET", "POST"])
+@login_required
 def edit_config():
     """Handle GET and POST requests to edit the configuration."""
     if request.method == "POST":
