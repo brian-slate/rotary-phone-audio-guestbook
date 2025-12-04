@@ -143,6 +143,12 @@ class ProcessingQueue:
                                     file_size = file_path.stat().st_size
                                     self.metadata_manager.initialize_recording(filename, file_size)
                                     logger.info(f"Initialized orphaned WAV file: {filename} ({duration:.1f}s)")
+                                    
+                                    # Immediately queue for processing if auto-process enabled
+                                    if self.auto_process_enabled and self.config.get('openai_api_key'):
+                                        self.queue.put((str(file_path), filename))
+                                        logger.info(f"Enqueued orphaned recording: {filename}")
+                                    
                                     orphaned_wavs_queued += 1
                         except Exception as e:
                             logger.warning(f"Could not read duration for {filename}: {e}")
