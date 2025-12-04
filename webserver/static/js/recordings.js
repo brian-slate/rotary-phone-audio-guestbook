@@ -1,3 +1,7 @@
+// Global variable to store all recordings for filtering
+let allRecordings = [];
+let searchDebounceTimer = null;
+
 // Format time without leading zeros (e.g., 0:55 instead of 00:55, 10:12 stays as 10:12)
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -29,103 +33,18 @@ function loadRecordings() {
         return;
       }
 
-      recordingList.innerHTML = "";
-
-      if (!files || files.length === 0) {
-        console.log("No files returned by API");
-        // Display empty state message
-        const emptyRow = document.createElement("tr");
-        emptyRow.innerHTML = `
-          <td colspan="5" class="py-8 text-center">
-            <div class="flex flex-col items-center">
-              <i class="fas fa-microphone-slash text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
-              <p class="text-gray-500 dark:text-gray-400">No recordings yet.</p>
-              <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Recordings will appear here when created.</p>
-            </div>
-          </td>
-        `;
-        recordingList.appendChild(emptyRow);
-
-        // Hide the action buttons when there are no recordings
-        document.getElementById('download-selected')?.classList.add("hidden");
-        document.getElementById('delete-selected')?.classList.add("hidden");
-      } else {
-        // Show the action buttons when there are recordings
-        document.getElementById('download-selected')?.classList.remove("hidden");
-        document.getElementById('delete-selected')?.classList.remove("hidden");
-
-        // Add recording items
-        files.forEach((filename, index) => {
-          console.log(`Creating item ${index + 1}/${files.length}: ${filename}`);
-          try {
-            const item = createRecordingItem(filename);
-            recordingList.appendChild(item);
-          } catch (err) {
-            console.error(`Error creating item for ${filename}:`, err);
-          }
-        });
-      }
-
-      try {
-        console.log("Setting up event listeners");
-        setupEventListeners();
-      } catch (err) {
-        console.error("Error in setupEventListeners:", err);
-      }
-
-      try {
-        // Initialize Plyr only on large desktop (1024px and up)
-        const isLargeDesktop = window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
-        console.log("Initializing audio players (large desktop only):", isLargeDesktop);
-        const audioElements = document.querySelectorAll('audio');
-        console.log(`Found ${audioElements.length} audio elements`);
-
-        let players = [];
-        if (isLargeDesktop) {
-          players = Array.from(audioElements).map(p => {
-            // Ensure audio elements are set up for proper loading
-            p.preload = "metadata";
-
-            // Desktop: full controls with progress and duration
-            const player = new Plyr(p, {
-              controls: ['play', 'progress', 'current-time', 'duration'],
-              displayDuration: true,
-              hideControls: false,
-              invertTime: false,
-              seekTime: 5,
-              tooltips: { controls: false, seek: false },
-              fullscreen: { enabled: false },
-              keyboard: { focused: true, global: false }
-            });
-            
-            // Format time without leading zeros
-            player.on('timeupdate', () => {
-              const currentTimeEl = player.elements.container.querySelector('.plyr__time--current');
-              const durationEl = player.elements.container.querySelector('.plyr__time--duration');
-              
-              if (currentTimeEl && isFinite(player.currentTime)) {
-                currentTimeEl.textContent = formatTime(player.currentTime);
-              }
-              if (durationEl && isFinite(player.duration)) {
-                durationEl.textContent = formatTime(player.duration);
-              }
-            });
-            
-            return player;
-          });
-        } else {
-          // Mobile/tablet: keep native <audio> hidden and control via compact button
-          Array.from(audioElements).forEach(p => { p.preload = 'metadata'; });
-        }
-
-        improveAudioDurationDetection();
-        console.log(`Initialized ${players.length} Plyr players`);
-      } catch (err) {
-        console.error("Error initializing audio players:", err);
-      }
+      // Store recordings globally for filtering
+      allRecordings = files;
+      
+      // Populate speaker filter dropdown
+      populateSpeakerFilter();
+      
+      // Apply current filters (if any)
+      applyFilters();
       
       // Check for processing recordings and start polling if needed
       checkForProcessingRecordings();
+
     })
     .catch((error) => {
       console.error("Error loading recordings:", error);
@@ -160,34 +79,10 @@ function loadRecordings() {
 
 function improveAudioDurationDetection() {
   document.querySelectorAll('audio').forEach(audio => {
-    // For WAV files specifically
-    if (audio.src.toLowerCase().endsWith('.wav')) {
-      // Try to force metadata loading
-      audio.addEventListener('loadedmetadata', () => {
-        // If duration is infinity or unusually small, try to fix it
-        if (!isFinite(audio.duration) || audio.duration < 0.1) {
-          console.log('Attempting to fix infinite duration for WAV file...');
-
-          // Force a tiny play/pause to get Chrome to recalculate
-          const playPromise = audio.play();
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              setTimeout(() => {
-                audio.pause();
-                console.log(`New duration after fix: ${audio.duration}`);
-              }, 10);
-            }).catch(err => {
-              console.warn('Play attempt to fix duration failed:', err);
-            });
-          }
-        }
-      });
-
-      // Add error handling
-      audio.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
-      });
-    }
+    // Just add error handling, no autoplay workaround
+    audio.addEventListener('error', (e) => {
+      console.error('Audio error:', e);
+    });
   });
 }
 
@@ -389,13 +284,6 @@ function createRecordingItem(recording) {
         mobileDuration && (mobileDuration.textContent = `${currentMins}:${currentSecs} / ${totalMins}:${totalSecs}`);
       }
     });
-    // Fallback attempt like desktop helper
-    if (!isFinite(audioEl.duration) || audioEl.duration < 0.1) {
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => setTimeout(() => audioEl.pause(), 10)).catch(() => {});
-      }
-    }
   }
 
   if (mobilePlayBtn && audioEl) {
@@ -741,22 +629,25 @@ function showTranscriptionModal(filename, recording) {
        </span>`
     : '';
   
+  // Get title for modal header
+  const displayTitle = recording.title || filename;
+  
   // Create modal overlay
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
   modal.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Transcription</h2>
-        <button class="close-modal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+      <div class="flex justify-between items-start mb-4">
+        <div class="flex-1 pr-4">
+          <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">${displayTitle}</h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${filename}</p>
+        </div>
+        <button class="close-modal text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0">
           <i class="fas fa-times text-2xl"></i>
         </button>
       </div>
       
       <div class="mb-4 space-y-3 border-b border-gray-200 dark:border-gray-600 pb-4">
-        <p class="text-sm text-gray-700 dark:text-gray-300">
-          <strong class="text-gray-900 dark:text-white">File:</strong> ${filename}
-        </p>
         ${speakerBadges ? `
           <div>
             <strong class="text-sm text-gray-900 dark:text-white block mb-2">Speakers:</strong>
@@ -777,9 +668,7 @@ function showTranscriptionModal(filename, recording) {
       </div>
       
       <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-5 border border-gray-200 dark:border-gray-700">
-        <p class="text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
-          ${cleanTranscription}
-        </p>
+        <p class="text-base text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">${cleanTranscription}</p>
       </div>
     </div>
   `;
@@ -814,7 +703,203 @@ function checkForProcessingRecordings() {
   }
 }
 
+// Populate speaker filter with unique speakers from all recordings
+function populateSpeakerFilter() {
+  const speakerSelect = document.getElementById('filter-speaker');
+  if (!speakerSelect) return;
+  
+  // Get unique speakers
+  const speakers = new Set();
+  allRecordings.forEach(recording => {
+    if (recording.speaker_names && Array.isArray(recording.speaker_names)) {
+      recording.speaker_names.forEach(name => speakers.add(name));
+    }
+  });
+  
+  // Keep "All Speakers" option and add speakers alphabetically with person icon
+  const currentValue = speakerSelect.value;
+  speakerSelect.innerHTML = '<option value="">All Speakers</option>';
+  Array.from(speakers).sort().forEach(speaker => {
+    const option = document.createElement('option');
+    option.value = speaker;
+    option.textContent = `👤 ${speaker}`;
+    speakerSelect.appendChild(option);
+  });
+  
+  // Restore previous selection if it still exists
+  if (currentValue && Array.from(speakers).includes(currentValue)) {
+    speakerSelect.value = currentValue;
+  }
+}
+
+// Apply all active filters and search
+function applyFilters() {
+  const searchInput = document.getElementById('search-input')?.value.toLowerCase() || '';
+  const searchField = document.getElementById('search-field')?.value || 'title';
+  const filterSpeaker = document.getElementById('filter-speaker')?.value || '';
+  const filterCategory = document.getElementById('filter-category')?.value || '';
+  
+  const recordingList = document.getElementById('recording-list');
+  if (!recordingList) return;
+  
+  recordingList.innerHTML = '';
+  
+  // Filter recordings
+  const filtered = allRecordings.filter(recording => {
+    const metadata = typeof recording === 'object' ? recording : {};
+    const filename = typeof recording === 'string' ? recording : recording.filename;
+    
+    // Search filter
+    if (searchInput) {
+      let searchMatch = false;
+      
+      if (searchField === 'title' || searchField === 'both') {
+        const title = (metadata.title || filename).toLowerCase();
+        if (title.includes(searchInput)) searchMatch = true;
+      }
+      
+      if (searchField === 'transcript' || searchField === 'both') {
+        const transcript = (metadata.transcription || '').toLowerCase();
+        if (transcript.includes(searchInput)) searchMatch = true;
+      }
+      
+      if (!searchMatch) return false;
+    }
+    
+    // Speaker filter
+    if (filterSpeaker) {
+      const speakers = metadata.speaker_names || [];
+      if (!speakers.includes(filterSpeaker)) return false;
+    }
+    
+    // Category filter
+    if (filterCategory) {
+      if (metadata.category !== filterCategory) return false;
+    }
+    
+    return true;
+  });
+  
+  // Update results count
+  const resultsCount = document.getElementById('results-count');
+  if (resultsCount) {
+    if (filtered.length === allRecordings.length) {
+      resultsCount.textContent = `${filtered.length} recording${filtered.length !== 1 ? 's' : ''}`;
+    } else {
+      resultsCount.textContent = `${filtered.length} of ${allRecordings.length} recording${allRecordings.length !== 1 ? 's' : ''}`;
+    }
+  }
+  
+  // Display filtered recordings
+  if (filtered.length === 0) {
+    const emptyRow = document.createElement('tr');
+    emptyRow.innerHTML = `
+      <td colspan="5" class="py-8 text-center">
+        <div class="flex flex-col items-center">
+          <i class="fas fa-search text-4xl text-gray-300 dark:text-gray-600 mb-3"></i>
+          <p class="text-gray-500 dark:text-gray-400">No recordings match your filters.</p>
+          <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your search or filters.</p>
+        </div>
+      </td>
+    `;
+    recordingList.appendChild(emptyRow);
+  } else {
+    filtered.forEach(recording => {
+      const item = createRecordingItem(recording);
+      recordingList.appendChild(item);
+    });
+  }
+  
+  // Setup event listeners for the new items
+  try {
+    setupEventListeners();
+  } catch (err) {
+    console.error('Error in setupEventListeners:', err);
+  }
+  
+  // Initialize audio players
+  try {
+    const isLargeDesktop = window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
+    const audioElements = document.querySelectorAll('audio');
+    
+    if (isLargeDesktop) {
+      Array.from(audioElements).map(p => {
+        p.preload = 'metadata';
+        const player = new Plyr(p, {
+          controls: ['play', 'progress', 'current-time', 'duration'],
+          displayDuration: true,
+          hideControls: false,
+          invertTime: false,
+          seekTime: 5,
+          tooltips: { controls: false, seek: false },
+          fullscreen: { enabled: false },
+          keyboard: { focused: true, global: false }
+        });
+        
+        player.on('timeupdate', () => {
+          const currentTimeEl = player.elements.container.querySelector('.plyr__time--current');
+          const durationEl = player.elements.container.querySelector('.plyr__time--duration');
+          
+          if (currentTimeEl && isFinite(player.currentTime)) {
+            currentTimeEl.textContent = formatTime(player.currentTime);
+          }
+          if (durationEl && isFinite(player.duration)) {
+            durationEl.textContent = formatTime(player.duration);
+          }
+        });
+        
+        return player;
+      });
+    } else {
+      Array.from(audioElements).forEach(p => { p.preload = 'metadata'; });
+    }
+    
+    improveAudioDurationDetection();
+  } catch (err) {
+    console.error('Error initializing audio players:', err);
+  }
+}
+
 // Initialize recordings on page load
 document.addEventListener("DOMContentLoaded", function () {
   loadRecordings();
+  
+  // Setup filter event listeners
+  const searchInput = document.getElementById('search-input');
+  const searchField = document.getElementById('search-field');
+  const filterSpeaker = document.getElementById('filter-speaker');
+  const filterCategory = document.getElementById('filter-category');
+  const clearFilters = document.getElementById('clear-filters');
+  
+  if (searchInput) {
+    // Debounce search input - wait 300ms after user stops typing
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        applyFilters();
+      }, 300);
+    });
+  }
+  
+  if (searchField) {
+    searchField.addEventListener('change', applyFilters);
+  }
+  
+  if (filterSpeaker) {
+    filterSpeaker.addEventListener('change', applyFilters);
+  }
+  
+  if (filterCategory) {
+    filterCategory.addEventListener('change', applyFilters);
+  }
+  
+  if (clearFilters) {
+    clearFilters.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      if (searchField) searchField.value = 'title';
+      if (filterSpeaker) filterSpeaker.value = '';
+      if (filterCategory) filterCategory.value = '';
+      applyFilters();
+    });
+  }
 });

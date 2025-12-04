@@ -7,13 +7,54 @@
 {% block content %}
 <h1 class="text-3xl font-bold text-center mb-8">Available Recordings</h1>
 
-<div class="flex flex-wrap justify-end items-center mb-6 gap-2 sm:gap-4">
-  <button id="download-selected" aria-label="Download Selected" class="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
-    <i class="fas fa-download text-lg md:mr-2"></i><span class="hidden md:inline">Download Selected</span>
-  </button>
-  <button id="delete-selected" aria-label="Delete Selected" class="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
-    <i class="fas fa-trash-alt text-lg md:mr-2"></i><span class="hidden md:inline">Delete Selected</span>
-  </button>
+<!-- Search and Filter Controls -->
+<div class="mb-4 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+  <div class="flex flex-col sm:flex-row gap-2">
+    <!-- Search Bar -->
+    <div class="flex-1 relative">
+      <input type="text" id="search-input" placeholder="Search recordings..." 
+             class="w-full px-3 py-2 pr-10 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+      <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+    </div>
+    <select id="search-field" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+      <option value="title">Title</option>
+      <option value="transcript">Transcript</option>
+      <option value="both">Both</option>
+    </select>
+    
+    <!-- Filter Dropdowns -->
+    <select id="filter-speaker" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+      <option value="">All Speakers</option>
+    </select>
+    <select id="filter-category" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+      <option value="">All Categories</option>
+      <option value="joyful">🌟 Joyful</option>
+      <option value="heartfelt">❤️ Heartfelt</option>
+      <option value="humorous">😄 Humorous</option>
+      <option value="nostalgic">🕰️ Nostalgic</option>
+      <option value="advice">💡 Advice</option>
+      <option value="blessing">🙏 Blessing</option>
+      <option value="toast">🥂 Toast</option>
+      <option value="gratitude">🙌 Gratitude</option>
+      <option value="apology">😔 Apology</option>
+      <option value="other">📝 Other</option>
+    </select>
+    <button id="clear-filters" class="px-3 py-2 text-sm rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium whitespace-nowrap">
+      <i class="fas fa-undo text-xs mr-1"></i>Reset
+    </button>
+  </div>
+</div>
+
+<div class="flex flex-wrap justify-between items-center mb-6 gap-2 sm:gap-4">
+  <div id="results-count" class="text-sm text-gray-600 dark:text-gray-400"></div>
+  <div class="flex gap-2">
+    <button id="download-selected" aria-label="Download Selected" class="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
+      <i class="fas fa-download text-lg md:mr-2"></i><span class="hidden md:inline">Download Selected</span>
+    </button>
+    <button id="delete-selected" aria-label="Delete Selected" class="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
+      <i class="fas fa-trash-alt text-lg md:mr-2"></i><span class="hidden md:inline">Delete Selected</span>
+    </button>
+  </div>
 </div>
 
 <div class="overflow-x-auto">

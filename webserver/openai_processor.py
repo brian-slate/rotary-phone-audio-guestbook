@@ -189,8 +189,17 @@ class AudioProcessor:
         prompt = f"""Analyze this guestbook voicemail and extract:
 
 1. Speaker names mentioned (full first and last names if available, otherwise just first names)
-   - ONLY include people who are SPEAKING, CALLING, or introducing themselves as guests
+   - ALWAYS include the primary person speaking/calling
+   - ALWAYS include anyone mentioned as "here", "present", "with me", "alongside", etc.
+   - Look for patterns: "X is here", "so is Y", "with Z", "alongside A", "B and I"
    - Do NOT include recipients, hosts, or people being addressed{ignored_names_note}
+   - Be aggressive: if someone is mentioned as being physically present, include them
+   - Examples:
+     * "Hey, it's Mike calling" → ["Mike"]
+     * "Sarah and I are here together" → [speaker name if given, "Sarah"]
+     * "Bob is also here, so is Alice" → [speaker name if given, "Bob", "Alice"]
+     * "This is John with my wife Mary" → ["John", "Mary"]
+     * "Bob Barker is also here, so is Captain Jean-Luc Picard" → [speaker name, "Bob Barker", "Captain Jean-Luc Picard"]
 2. Emotional category (choose one: {categories_str})
 3. A short, specific title
    - 6–8 words preferred; allow up to 14 if needed

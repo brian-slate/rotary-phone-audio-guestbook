@@ -4,16 +4,28 @@
 
 # Raspberry Pi (target device)
 RPI_USER="admin"
-RPI_HOST="${1:-blackbox}"  # Use provided hostname/IP or default to blackbox
+RPI_HOST="blackbox"  # Default hostname
 RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 RPI_SYSTEMD_DIR="/etc/systemd/system"
 
-# Skip backup by default for faster deploys (pass --backup to enable)
+# Parse command-line arguments
 SKIP_BACKUP=true
-if [[ "$2" == "--backup" ]] || [[ "$1" == "--backup" ]]; then
-    SKIP_BACKUP=false
-    echo "Backup mode enabled"
-fi
+QUICK_MODE=false
+
+for arg in "$@"; do
+    case $arg in
+        --backup)
+            SKIP_BACKUP=false
+            ;;
+        --quick|--sync)
+            QUICK_MODE=true
+            ;;
+        *)
+            # Assume it's the hostname/IP
+            RPI_HOST="$arg"
+            ;;
+    esac
+done
 
 # Image backup settings
 IMG_VERSION="v1.0.4"
@@ -23,7 +35,13 @@ IMG_PATH="/mnt/${IMG_BACKUP_NAME}"
 # Local backup directory
 BACKUP_DIR="./backup"
 
-echo "=== Starting Deploy Script ==="
+if [ "$QUICK_MODE" = true ]; then
+    echo "=== Quick Sync Mode (--quick) ==="
+    echo "Syncing files only - skipping dependency installation"
+else
+    echo "=== Full Deploy Mode ==="
+    echo "Installing dependencies and restarting services"
+fi
 echo "Target: ${RPI_HOST}"
 
 # Step 0: Build frontend assets locally (CSS/JS)
@@ -36,15 +54,22 @@ fi
 
 # Step 1: Sync files from local machine to Raspberry Pi
 echo "Syncing files from local machine to Raspberry Pi..."
-rsync -avz --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI_PROJECT_DIR}/
+RSYNC_OUTPUT=$(rsync -avz --itemize-changes --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI_PROJECT_DIR}/ 2>&1)
+RSYNC_EXIT=$?
+echo "$RSYNC_OUTPUT"
 
 # Step 2: SSH into the Raspberry Pi to execute commands there
-echo "Connecting to Raspberry Pi to complete deployment..."
-ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
-    # Install system dependencies
-    echo "Installing system dependencies..."
-    sudo apt-get update
-    sudo apt-get install -y ffmpeg python3-venv
+if [ "$QUICK_MODE" = true ]; then
+    echo "Quick mode: Skipping dependency installation"
+    # Just merge config in quick mode
+    ssh ${RPI_USER}@${RPI_HOST} "bash ${RPI_PROJECT_DIR}/scripts/merge_config_remote.sh ${RPI_PROJECT_DIR}"
+else
+    echo "Connecting to Raspberry Pi to complete deployment..."
+    ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
+        # Install system dependencies
+        echo "Installing system dependencies..."
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg python3-venv
     
     # Ensure user is in gpio group for hardware access
     if ! groups | grep -q gpio; then
@@ -121,17 +146,47 @@ ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
     sudo systemctl enable audioGuestBookWebServer.service
     sudo systemctl restart audioGuestBookWebServer.service
 
-    # Wait for services to settle
-    sleep 5
+        # Wait for services to settle
+        sleep 5
 ENDSSH
 
-# Check if SSH command was successful
-if [ $? -ne 0 ]; then
-    echo "Error: SSH connection or remote commands failed."
-    exit 1
+    # Check if SSH command was successful
+    if [ $? -ne 0 ]; then
+        echo "Error: SSH connection or remote commands failed."
+        exit 1
+    fi
+
+    echo "=== Services restarted successfully ==="
 fi
 
-echo "=== Services restarted successfully ==="
+# Smart restart logic for quick mode
+if [ "$QUICK_MODE" = true ]; then
+    # Check if templates or static files changed - if so, restart web server
+    if echo "$RSYNC_OUTPUT" | grep -qE "(webserver/templates/|webserver/static/)"; then
+        echo ""
+        echo "📝 Detected changes to templates or static files"
+        echo "🔄 Auto-restarting web server..."
+        ssh ${RPI_USER}@${RPI_HOST} "sudo systemctl restart audioGuestBookWebServer.service"
+        if [ $? -eq 0 ]; then
+            echo "✅ Web server restarted successfully"
+        else
+            echo "❌ Failed to restart web server"
+        fi
+    fi
+    
+    # Check if Python source files changed - if so, suggest restart
+    if echo "$RSYNC_OUTPUT" | grep -qE "\.(py)$"; then
+        echo ""
+        echo "📝 Python source files changed"
+        echo "💡 You may want to restart services:"
+        echo "   ssh ${RPI_USER}@${RPI_HOST} 'sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service'"
+    fi
+    
+    echo ""
+    echo "✅ Quick sync completed"
+    echo "Test at: http://${RPI_HOST}:8080"
+    exit 0
+fi
 
 # Optional: Create backup if requested
 if [ "$SKIP_BACKUP" = false ]; then

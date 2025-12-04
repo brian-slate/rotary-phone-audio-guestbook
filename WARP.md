@@ -37,8 +37,7 @@ rotary-phone-audio-guestbook/
 ├── recordings/                       # Voice recordings (WAV + metadata JSON)
 ├── config.yaml                       # Configuration (GPIO, audio, AI settings)
 ├── *.service                         # systemd service files
-├── deploy.sh                         # Full deployment with dependency install
-└── sync-to-pi.sh                    # Quick code sync without restart
+└── deploy.sh                         # Unified deployment script (supports --quick mode)
 ```
 
 ## Key Technologies
@@ -77,13 +76,14 @@ openai_compress_audio: true                 # 98% bandwidth savings
 
 ## Deployment Workflow
 
-Two deployment scripts available - choose based on what changed:
+Unified deployment script with two modes:
 
-### Quick Sync: `sync-to-pi.sh` (Preferred for most changes)
-**Builds frontend locally (Tailwind/PostCSS), then fast file sync only - NO service restart, NO dependency install**
+### Quick Mode: `deploy.sh --quick` (Preferred for most changes)
+**Fast file sync only - auto-restarts web server if templates/static files changed**
 
 ```bash
-./sync-to-pi.sh blackbox
+./deploy.sh --quick blackbox
+# or: ./deploy.sh --sync blackbox
 ```
 
 **Use when:**
@@ -93,23 +93,22 @@ Two deployment scripts available - choose based on what changed:
 - ✅ Quick iteration during development
 - ✅ Testing changes without downtime
 
+**What it does:**
+- Builds frontend assets locally (Tailwind/PostCSS)
+- Syncs files to Pi
+- Merges `config.yaml` (preserves user settings)
+- **Auto-detects** changes to templates/static files and restarts web server
+- Suggests manual restart if Python files changed
+
 **Pros:**
 - ⚡ **Fast** (~2-3 seconds)
-- 📡 No service interruption (keeps phone working)
-- 🔁 Can test with manual restart only if needed
-
-Frontend builds require Node.js/npm locally. The Pi does not build assets; it only serves generated files from `webserver/static/css`.
-
-**After sync, restart only if needed:**
-```bash
-# Test changes first, then restart if they require it:
-ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
-```
+- 🧠 **Smart restarts** - only restarts what's needed
+- 📡 Minimal service interruption
 
 ---
 
 ### Full Deploy: `deploy.sh` (Required for dependencies/services)
-**Builds frontend locally, then complete deployment - syncs + installs + restarts**
+**Complete deployment - syncs + installs + restarts**
 
 ```bash
 ./deploy.sh blackbox
@@ -120,10 +119,10 @@ ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBook
 - 📦 Need to install system packages (FFmpeg, etc.)
 - ⚙️ Modified systemd service files (`*.service`)
 - 🆕 First-time setup or major updates
-- 🏗️ Changed project structure
+- 🏭 Changed project structure
 
 **What it does:**
-1. Builds frontend assets locally (Tailwind -> output.css, PostCSS/cssnano -> output.min.css)
+1. Builds frontend assets locally (Tailwind → output.css, PostCSS/cssnano → output.min.css)
 2. Syncs all files to Pi
 3. Installs system dependencies (FFmpeg)
 4. Installs Python packages from `requirements.txt`
@@ -139,16 +138,16 @@ ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBook
 
 ```
 Did you change dependencies or service files?
-├─ Yes → Use deploy.sh
-└─ No → Use sync-to-pi.sh (then restart if needed)
+├─ Yes → ./deploy.sh blackbox
+└─ No → ./deploy.sh --quick blackbox
 ```
 
 **Examples:**
-- "Fixed LED bleeding bug" → `sync-to-pi.sh` + restart
-- "Added greeting mode dropdown" → `sync-to-pi.sh` + restart  
-- "Installed new openai package" → `deploy.sh`
-- "Changed systemd service config" → `deploy.sh`
-- "Updated HTML template" → `sync-to-pi.sh` (no restart needed)
+- "Fixed LED bleeding bug" → `./deploy.sh --quick` (auto-restarts if needed)
+- "Added greeting mode dropdown" → `./deploy.sh --quick` (auto-restarts web server)
+- "Installed new openai package" → `./deploy.sh`
+- "Changed systemd service config" → `./deploy.sh`
+- "Updated HTML template" → `./deploy.sh --quick` (auto-restarts web server)
 
 ### After Deployment
 
@@ -441,8 +440,8 @@ git push brian-slate openai-tts-implementation
 
 When assisting with this project:
 
-1. **Always use deployment scripts**: `deploy.sh` or `sync-to-pi.sh`
-2. **Service restarts required**: Most Python changes need service restart
+1. **Always use deployment script**: `deploy.sh` (with `--quick` for fast syncs)
+2. **Service restarts**: Quick mode auto-restarts web server when needed
 3. **Check logs first**: Use `journalctl` for debugging
 4. **Mind Pi Zero W limitations**: Single-core, limited RAM
 5. **Test on actual hardware**: Audio/GPIO require real device
@@ -454,16 +453,16 @@ When assisting with this project:
 ### Quick Commands Reference
 
 ```bash
-# Deploy with dependencies
+# Full deploy (dependencies + restart)
 ./deploy.sh blackbox
 
-# Quick sync only
-./sync-to-pi.sh blackbox
+# Quick sync (files only, smart restart)
+./deploy.sh --quick blackbox
 
 # View logs
 ssh admin@blackbox "sudo journalctl -u audioGuestBook.service -f"
 
-# Restart services
+# Restart services manually
 ssh admin@blackbox "sudo systemctl restart audioGuestBook.service audioGuestBookWebServer.service"
 
 # Check status
@@ -473,7 +472,7 @@ ssh admin@blackbox "sudo systemctl status audioGuestBook.service audioGuestBookW
 ssh admin@blackbox "htop"
 
 # Edit config
-vim config.yaml && ./deploy.sh blackbox
+vim config.yaml && ./deploy.sh --quick blackbox
 ```
 
 ## Dependencies
