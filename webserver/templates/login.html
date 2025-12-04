@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}BLACK BOX - Login{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="max-w-md w-full">
+    <!-- Login Card -->
+    <div class="bg-secondary dark:bg-dark-secondary rounded-lg shadow-lg p-6">
+      <h2 class="text-2xl font-bold text-text dark:text-dark-text mb-6 text-center">
+        <i class="fas fa-lock mr-2"></i>Password Required
+      </h2>
+
+      <!-- Error Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="mb-4 p-3 rounded {% if category == 'error' %}bg-red-100 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-300{% else %}bg-green-100 dark:bg-green-900/20 border-l-4 border-green-500 text-green-700 dark:text-green-300{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Login Form -->
+      <form method="POST" action="{{ url_for('login') }}">
+        <div class="mb-6">
+          <label for="password" class="block mb-2 text-text dark:text-dark-text font-semibold">
+            Password
+          </label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            autofocus
+            required
+            class="w-full px-4 py-3 border rounded-lg bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Enter password"
+          />
+        </div>
+
+        <button 
+          type="submit"
+          class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-4 rounded-lg transition-colors">
+          <i class="fas fa-sign-in-alt mr-2"></i>Login
+        </button>
+        
+        <!-- Forgot Password Link with Custom Tooltip -->
+        <div class="mt-4 text-center relative">
+          <span class="text-sm text-gray-500 dark:text-gray-400 cursor-help inline-flex items-center tooltip-trigger" onclick="this.classList.toggle('active')">
+            <i class="fas fa-question-circle mr-1"></i>Forgot password?
+            <div class="tooltip-bubble" style="width: 300px; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: 8px;">
+              SSH to the device: <code>ssh admin@blackbox.local</code>, then edit <code>/home/admin/rotary-phone-audio-guestbook/config.yaml</code> and clear the <code>web_password</code> field
+            </div>
+          </span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Close tooltips when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tooltip-trigger')) {
+      document.querySelectorAll('.tooltip-trigger.active').forEach(t => {
+        t.classList.remove('active');
+      });
+    }
+  });
+  
+  // Prevent tooltip close when clicking inside it
+  document.querySelectorAll('.tooltip-trigger').forEach(trigger => {
+    trigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  });
+</script>
+{% endblock %}

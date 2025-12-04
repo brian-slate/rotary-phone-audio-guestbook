@@ -2,6 +2,7 @@
 
 import logging
 import os
+import subprocess
 import sys
 import threading
 import random
@@ -23,6 +24,19 @@ except ImportError:
     LED_AVAILABLE = False
 
 from audioInterface import AudioInterface
+
+# Import AI processing components (lazy import to avoid errors if not installed)
+try:
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "webserver"))
+    from job_queue import ProcessingQueue
+    from openai_processor import AudioProcessor
+    from metadata_manager import MetadataManager
+    from connectivity_checker import ConnectivityChecker
+    AI_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"AI processing components not available: {e}")
+    AI_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,6 +67,7 @@ class AudioGuestBook:
     LED_PIN = board.D18 if LED_AVAILABLE else None  # GPIO 18 (PWM)
     LED_BRIGHTNESS = 0.8     # Default brightness (0.0 to 1.0)
     LED_STATUS_INDEX = 6     # 7th LED (0-indexed) for status indicator
+    LED_AI_INDICATOR_INDEX = 4  # 5th LED (0-indexed) for AI processing indicator
 
     def __init__(self, config_path):
         """
@@ -97,12 +112,50 @@ class AudioGuestBook:
         self.led_animation_running = False
         self.led_animation_thread = None
         
+        # AI processing indicator control
+        self.ai_indicator_running = False
+        self.ai_indicator_thread = None
+        
         # Hook toggle tracking for record greeting mode
         self.hook_toggle_times = []
         self.pending_greeting_record = False
         self.greeting_recording_file = None
         self.greeting_recording_started = False  # Track if recording actually started
+        
+        # Initialize AI components if available
+        self.setup_ai_processing()
 
+    def setup_ai_processing(self):
+        """Initialize AI processing components."""
+        if not AI_AVAILABLE:
+            logger.info("AI processing components not available, skipping AI setup")
+            return
+        
+        try:
+            # Initialize AI components
+            self.metadata_manager = MetadataManager(self.config['recordings_path'])
+            self.connectivity_checker = ConnectivityChecker()
+            self.audio_processor = AudioProcessor(self.config)
+            
+            # Create phone state checker function
+            def is_phone_active():
+                return self.current_event != CurrentEvent.NONE
+            
+            # Initialize processing queue with idle-time check
+            self.processing_queue = ProcessingQueue(
+                self.audio_processor,
+                self.metadata_manager,
+                self.connectivity_checker,
+                is_phone_active,
+                self.config
+            )
+            # Register callback for AI processing state changes
+            self.processing_queue.processing_callback = self.on_ai_processing_state_changed
+            self.processing_queue.start()
+            logger.info("AI processing queue initialized and started")
+        except Exception as e:
+            logger.error(f"Failed to initialize AI processing: {e}")
+    
     def load_config(self):
         """
         Loads the application configuration from a YAML file.
@@ -151,7 +204,17 @@ class AudioGuestBook:
         if self.pixels is None:
             return
         
-        logger.info("Guestbook ready - showing ready state LED")
+        logger.info("BLACK BOX ready - showing ready state LED")
+        
+        # Stop the boot LED service now that we're ready
+        try:
+            subprocess.run(['systemctl', 'stop', 'bootLed.service'], check=False)
+            logger.info("Stopped boot LED service")
+        except Exception as e:
+            logger.warning(f"Failed to stop boot LED service: {e}")
+        
+        # Brief pause to avoid race condition with boot LED script
+        time.sleep(0.1)
         
         # Clear any boot animation and go straight to ready state
         self.pixels.fill((0, 0, 0))
@@ -327,6 +390,24 @@ class AudioGuestBook:
         # Return to ready state
         self.led_show_ready_state()
         logger.info("Stopped LED animation, returned to ready state")
+
+    def led_stop_animation_without_saved(self):
+        """
+        Stop the recording animation and go straight to ready state (no Saved flash).
+        Used when the recording was discarded as junk/too short.
+        """
+        if self.pixels is None:
+            return
+        
+        self.led_animation_running = False
+        
+        if self.led_animation_thread is not None:
+            self.led_animation_thread.join(timeout=1.0)
+            self.led_animation_thread = None
+        
+        # Directly show ready state without the green flash
+        self.led_show_ready_state()
+        logger.info("Stopped LED animation without Saved flash (junk/short recording)")
     
     def led_saved_animation(self):
         """
@@ -373,9 +454,99 @@ class AudioGuestBook:
             return
         
         self.led_animation_running = False
+        self.ai_indicator_running = False
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
         logger.info("LEDs turned off")
+    
+    def on_ai_processing_state_changed(self, is_processing: bool):
+        """
+        Callback invoked when AI processing starts or stops.
+        Only shows indicator when phone is in ready state.
+        """
+        # Only show AI indicator when phone is idle (ready state)
+        if self.current_event != CurrentEvent.NONE:
+            return
+        
+        if is_processing:
+            self.led_start_ai_indicator()
+        else:
+            self.led_stop_ai_indicator()
+    
+    def led_start_ai_indicator(self):
+        """
+        Start purple pulsing animation on LED 5 (index 4) to indicate AI processing.
+        Keeps green ready LED (LED 6) lit.
+        """
+        if self.pixels is None:
+            return
+        
+        if not self.ai_indicator_running:
+            self.ai_indicator_running = True
+            self.ai_indicator_thread = threading.Thread(
+                target=self._led_ai_indicator_loop,
+                daemon=True
+            )
+            self.ai_indicator_thread.start()
+            logger.info("Started AI processing indicator (purple pulse on LED 5 / index 4)")
+    
+    def led_stop_ai_indicator(self):
+        """
+        Stop AI indicator animation and return LED 5 to off.
+        Keeps green ready LED (LED 6) lit.
+        """
+        if self.pixels is None:
+            return
+        
+        self.ai_indicator_running = False
+        
+        if self.ai_indicator_thread is not None:
+            self.ai_indicator_thread.join(timeout=1.0)
+            self.ai_indicator_thread = None
+        
+        # Turn off AI indicator LED
+        self.pixels[self.LED_AI_INDICATOR_INDEX] = (0, 0, 0)
+        # Keep ready LED green
+        self.pixels[self.LED_STATUS_INDEX] = (0, 77, 0)
+        self.pixels.show()
+        logger.info("Stopped AI processing indicator")
+    
+    def _led_ai_indicator_loop(self):
+        """
+        Fast purple pulsing animation on LED 5 (index 4).
+        Pulses from completely off to 30% brightness (matching ready LED level).
+        """
+        if self.pixels is None:
+            return
+        
+        pulse_value = 0   # Start completely off
+        direction = 1     # 1 = brightening, -1 = dimming
+        max_brightness = 77  # Match the ready LED brightness (30% of 255)
+        
+        while self.ai_indicator_running:
+            # Fast pulsing between 0-77 (off to 30% brightness, matching ready LED)
+            pulse_value += direction * 3  # Adjusted for smaller range
+            
+            if pulse_value >= max_brightness:
+                pulse_value = max_brightness
+                direction = -1
+            elif pulse_value <= 0:
+                pulse_value = 0
+                direction = 1
+            
+            # Purple color (more blue, some red, no green)
+            brightness_factor = pulse_value / 255
+            r = int(128 * brightness_factor)  # Medium red
+            g = 0                              # No green
+            b = int(255 * brightness_factor)  # Full blue
+            
+            # Update LED 5 (index 4) with purple
+            self.pixels[self.LED_AI_INDICATOR_INDEX] = (r, g, b)
+            # Keep LED 6 green (ready state)
+            self.pixels[self.LED_STATUS_INDEX] = (0, 77, 0)
+            self.pixels.show()
+            
+            time.sleep(0.02)  # ~50fps, faster pulse (was 0.04)
 
     def setup_hook(self):
         """
@@ -483,6 +654,10 @@ class AudioGuestBook:
 
         # Ensure clean state by forcing stop of any existing processes
         self.stop_recording_and_playback()
+        
+        # Stop AI indicator if it's running (phone now active)
+        if self.ai_indicator_running:
+            self.led_stop_ai_indicator()
 
         # Check if we should enter record greeting mode
         if self.pending_greeting_record:
@@ -506,11 +681,51 @@ class AudioGuestBook:
             self.greeting_thread = threading.Thread(target=self.play_greeting_and_beep)
             self.greeting_thread.start()
 
+    def _get_greeting_file(self) -> str:
+        """Select greeting file based on configured mode.
+        
+        Returns:
+            Path to the greeting file to play
+        """
+        mode = self.config.get("greeting_mode", "single")
+        
+        if mode == "single":
+            return self.config["greeting"]
+        
+        # For random and sequential, get all .wav files from greetings directory
+        sounds_dir = Path(self.config["greeting"]).parent
+        greeting_files = sorted([str(f) for f in sounds_dir.iterdir() if f.is_file() and f.suffix.lower() == ".wav"])
+        
+        if not greeting_files:
+            logger.warning(f"No greeting files found in {sounds_dir}, using default")
+            return self.config["greeting"]
+        
+        if mode == "random":
+            selected = random.choice(greeting_files)
+            logger.info(f"Random greeting selected: {Path(selected).name}")
+            return selected
+        
+        elif mode == "sequential":
+            # Lazy import greeting state manager
+            if not hasattr(self, 'greeting_manager'):
+                try:
+                    sys.path.insert(0, str(Path(__file__).parent.parent / "webserver"))
+                    from greeting_state_manager import GreetingStateManager
+                    self.greeting_manager = GreetingStateManager(self.config['recordings_path'])
+                except ImportError as e:
+                    logger.error(f"Failed to import GreetingStateManager: {e}")
+                    return self.config["greeting"]
+            
+            return self.greeting_manager.get_next_greeting(greeting_files)
+        
+        # Fallback
+        return self.config["greeting"]
+    
     def start_recording(self, output_file: str):
         """
         Starts the audio recording process and sets a timer for time exceeded event.
         """
-
+        self.current_recording_path = output_file  # Store for AI processing later
         self.audio_interface.start_recording(output_file)
         logger.info("Recording started...")
 
@@ -527,8 +742,12 @@ class AudioGuestBook:
         # Play the greeting
         self.audio_interface.continue_playback = self.current_event == CurrentEvent.HOOK
         logger.info("Playing voicemail...")
+        
+        # Get greeting file based on mode (single, random, or sequential)
+        greeting_file = self._get_greeting_file()
+        
         self.audio_interface.play_audio(
-            self.config["greeting"],
+            greeting_file,
             self.config["greeting_volume"],
             self.config["greeting_start_delay"],
         )
@@ -576,12 +795,84 @@ class AudioGuestBook:
             logger.info("Phone on hook. Ending call and saving recording.")
             # Stop any ongoing processes before resetting the state
             self.stop_recording_and_playback()
+            
+            # Decide whether to show "Saved" based on whether a valid file remains
+            show_saved = False
+            try:
+                if hasattr(self, 'current_recording_path'):
+                    file_path_tmp = Path(self.current_recording_path)
+                    if file_path_tmp.exists():
+                        min_size = self.audio_interface.minimum_file_size_bytes
+                        size_tmp = file_path_tmp.stat().st_size
+                        if size_tmp >= min_size:
+                            # Optional duration check for extra safety
+                            try:
+                                import wave
+                                with wave.open(str(file_path_tmp), 'rb') as wav:
+                                    frames = wav.getnframes()
+                                    rate = wav.getframerate()
+                                    duration_tmp = frames / float(rate or 1)
+                                if duration_tmp >= self.audio_interface.minimum_message_duration:
+                                    show_saved = True
+                            except Exception:
+                                # If duration check fails but size is OK, still show saved
+                                show_saved = True
+            except Exception as _:
+                show_saved = False
 
-            # Stop LED animation and return to ready state
-            self.led_stop_animation()
-
-            # Reset everything to initial state
+            # Stop LED animation and return to ready state (skip Saved if junk)
+            if show_saved:
+                self.led_stop_animation()
+            else:
+                self.led_stop_animation_without_saved()
+            
+            # Reset current_event BEFORE queuing AI so callback sees phone as idle
             self.current_event = CurrentEvent.NONE
+            
+            # Queue for AI processing if we have a recording path
+            if AI_AVAILABLE and hasattr(self, 'current_recording_path') and hasattr(self, 'processing_queue'):
+                file_path = Path(self.current_recording_path)
+                
+                if file_path.exists():
+                    # Secondary pre-queue validation to avoid AI LED on junk files
+                    try:
+                        file_size = file_path.stat().st_size
+                        min_size = self.audio_interface.minimum_file_size_bytes
+                        if file_size < min_size:
+                            logger.info(f"Skipping AI queue: file too small ({file_size} < {min_size} bytes): {file_path.name}")
+                            file_path.unlink(missing_ok=True)
+                            return
+                        # Compute duration from WAV header
+                        import wave
+                        with wave.open(str(file_path), 'rb') as wav:
+                            frames = wav.getnframes()
+                            rate = wav.getframerate()
+                            duration = frames / float(rate or 1)
+                        min_dur = self.audio_interface.minimum_message_duration
+                        if duration < min_dur:
+                            logger.info(f"Skipping AI queue: duration too short ({duration:.2f}s < {min_dur:.2f}s): {file_path.name}")
+                            file_path.unlink(missing_ok=True)
+                            return
+                    except Exception as preq_err:
+                        logger.warning(f"Pre-queue validation error for {file_path.name}: {preq_err}. Skipping.")
+                        try:
+                            file_path.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        return
+
+                    # Initialize metadata entry
+                    self.metadata_manager.initialize_recording(
+                        file_path.name,
+                        file_size
+                    )
+                    
+                    # Queue for AI processing (will process when idle)
+                    self.processing_queue.enqueue(
+                        str(file_path),
+                        file_path.name
+                    )
+                    logger.info(f"Queued {file_path.name} for AI processing")
 
             # Make sure we're ready for the next call with more verbose logging
             logger.info("=========================================")
@@ -735,11 +1026,11 @@ class AudioGuestBook:
             self.greeting_recording_file = str(greetings_dir / f"greeting-{timestamp}.wav")
             logger.info(f"Recording new greeting to: {self.greeting_recording_file}")
             
-            # Mark that recording has started (so we know to save on hang-up)
-            self.greeting_recording_started = True
-            
             # Start recording (no time limit for greeting)
             self.audio_interface.start_recording(self.greeting_recording_file)
+            
+            # Mark that recording has started AFTER it actually begins (so we know to save on hang-up)
+            self.greeting_recording_started = True
             logger.info("Recording greeting... hang up when finished.")
     
     def _save_new_greeting(self, greeting_file):
@@ -848,6 +1139,10 @@ class AudioGuestBook:
         except KeyboardInterrupt:
             logger.info("Shutting down...")
         finally:
+            # Stop processing queue
+            if AI_AVAILABLE and hasattr(self, 'processing_queue'):
+                self.processing_queue.stop()
+            # Cleanup LEDs
             self.led_cleanup()
 
 

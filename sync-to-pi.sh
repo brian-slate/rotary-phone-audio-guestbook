@@ -5,7 +5,7 @@
 
 # Raspberry Pi settings
 RPI_USER="admin"
-RPI_HOST="${1:-camphone}"  # Use provided hostname/IP or default to camphone
+RPI_HOST="${1:-blackbox}"  # Use provided hostname/IP or default to blackbox
 RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 
 echo "=== Syncing code to Raspberry Pi at ${RPI_HOST} ==="
@@ -22,6 +22,10 @@ rsync -avz --exclude-from='./rsync-exclude.txt' \
 
 if [ $? -eq 0 ]; then
     echo "=== Sync completed successfully ==="
+    
+    # Merge config.yaml to preserve user settings while adding new defaults
+    ssh ${RPI_USER}@${RPI_HOST} "bash ${RPI_PROJECT_DIR}/scripts/merge_config_remote.sh ${RPI_PROJECT_DIR}"
+    
     echo ""
     echo "Next steps:"
     echo "1. SSH into the Pi: ssh ${RPI_USER}@${RPI_HOST}"

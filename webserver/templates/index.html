@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Audio Guestbook - Recordings{% endblock %}
+{% block title %}BLACK BOX - Recordings{% endblock %}
 {% block extra_head %}
 <script src="{{ url_for('static', filename='js/moment.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/hammer.min.js') }}"></script>
@@ -7,12 +7,12 @@
 {% block content %}
 <h1 class="text-3xl font-bold text-center mb-8">Available Recordings</h1>
 
-<div class="flex justify-end items-center mb-6 space-x-4">
-  <button id="download-selected" class="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-md px-4 py-2 flex items-center shadow-sm transition-colors duration-200">
-    <i class="fas fa-download mr-2"></i>Download Selected
+<div class="flex flex-wrap justify-end items-center mb-6 gap-2 sm:gap-4">
+  <button id="download-selected" aria-label="Download Selected" class="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
+    <i class="fas fa-download text-lg md:mr-2"></i><span class="hidden md:inline">Download Selected</span>
   </button>
-  <button id="delete-selected" class="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md px-4 py-2 flex items-center shadow-sm transition-colors duration-200">
-    <i class="fas fa-trash-alt mr-2"></i>Delete Selected
+  <button id="delete-selected" aria-label="Delete Selected" class="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md w-10 h-10 p-0 inline-flex items-center justify-center shadow-sm transition-colors duration-200 md:w-auto md:h-auto md:px-4 md:py-2">
+    <i class="fas fa-trash-alt text-lg md:mr-2"></i><span class="hidden md:inline">Delete Selected</span>
   </button>
 </div>
 
@@ -23,10 +23,10 @@
         <th class="p-3 w-12 text-center">
           <input type="checkbox" id="select-all" class="w-4 h-4" />
         </th>
-        <th class="p-3 text-left font-semibold">Filename</th>
-        <th class="p-3 text-left font-semibold">Audio</th>
-        <th class="p-3 text-left font-semibold">Date</th>
-        <th class="p-3 w-24 text-right font-semibold">Actions</th>
+        <th class="p-3 text-left font-semibold">Message</th>
+        <th class="p-3 text-left font-semibold hidden md:table-cell">Audio</th>
+        <th class="p-3 text-left font-semibold hidden sm:table-cell">Date</th>
+        <th class="p-3 w-24 text-right font-semibold hidden sm:table-cell">Actions</th>
       </tr>
     </thead>
     <tbody id="recording-list" class="divide-y divide-gray-200 dark:divide-gray-700">

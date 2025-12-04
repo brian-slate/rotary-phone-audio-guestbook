@@ -18,8 +18,10 @@ from flask import (
     request,
     send_file,
     send_from_directory,
+    session,
     url_for,
 )
+from functools import wraps
 from ruamel.yaml import YAML
 
 # Set up logging and app configuration
@@ -42,6 +44,53 @@ app = Flask(__name__,
            static_url_path="/static",
            static_folder=str(STATIC_DIR))
 app.secret_key = "supersecretkey"  # Needed for flashing messages
+
+# Shared path for persisting last OpenAI error
+ERROR_FILE = WEBSERVER_DIR / "last_openai_error.json"
+
+def _read_last_openai_error():
+    """Return dict with last error if API key configured and error file exists."""
+    try:
+        if not config.get('openai_api_key'):
+            return None
+        if ERROR_FILE.exists():
+            import json
+            return json.loads(ERROR_FILE.read_text())
+    except Exception as e:
+        logger.warning(f"Failed to read last OpenAI error: {e}")
+    return None
+
+
+def _clear_last_openai_error():
+    try:
+        if ERROR_FILE.exists():
+            ERROR_FILE.unlink()
+    except Exception as e:
+        logger.warning(f"Failed to clear last OpenAI error: {e}")
+
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check if password protection is enabled
+        web_password = config.get('web_password', '')
+        if web_password and web_password.strip():
+            # Password protection is enabled, check if user is authenticated
+            if not session.get('authenticated'):
+                return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@app.context_processor
+def inject_template_variables():
+    # Makes variables available to all templates
+    return {
+        "ai_processing_error": _read_last_openai_error(),
+        "version": "3.4.0",  # Remove openai_enabled, manual force-process improvements, bugfixes
+        "password_protected": bool(config.get('web_password', '').strip())
+    }
 
 # Define other important paths
 config_path = BASE_DIR / "config.yaml"
@@ -88,6 +137,66 @@ elif not recordings_path.is_dir():
 else:
     logger.info(f"Recordings directory verified: {recordings_path}")
 
+
+def update_config(form_data, skip_fields=None):
+    """Update the YAML configuration with form data."""
+    if skip_fields is None:
+        skip_fields = []
+
+    # Fields that should always be parsed as CSV → list, even if missing in config
+    list_fields = {"openai_ignored_names", "openai_categories"}
+    
+    for key, value in form_data.items():
+        # Skip CSRF token if it exists
+        if key == 'csrf_token':
+            continue
+        
+        # Skip fields that had file uploads (already updated)
+        if key in skip_fields:
+            logger.info(f"Skipping '{key}' - file was uploaded")
+            continue
+
+        # Accept all form fields - if not in config, add as new field (string by default)
+        # This allows new config options without code changes
+
+        # Log the conversion attempt
+        logger.info(f"Updating '{key}': {config.get(key, 'Not set')} (type: {type(config.get(key, '')).__name__}) → '{value}'")
+
+        try:
+            # Force-parse known CSV list fields regardless of current type
+            if key in list_fields:
+                # Support commas or newlines
+                parts = re.split(r"[,\n]", value or "")
+                new_list = [item.strip() for item in parts if item and item.strip()]
+                config[key] = new_list
+                logger.info(f"Parsed CSV to list for {key}: {new_list}")
+            # Convert based on existing type in config, or detect boolean values
+            elif isinstance(config.get(key), bool) or value.lower() in ('true', 'false'):
+                # Convert string to boolean
+                new_value = (value.lower() == "true")
+                logger.info(f"Converting to boolean: {value} → {new_value}")
+                config[key] = new_value
+            elif isinstance(config.get(key), int):
+                config[key] = int(value)
+            elif isinstance(config.get(key), float):
+                config[key] = float(value)
+            elif isinstance(config.get(key), list):
+                # Generic list fields (fallback): comma-separated strings
+                if value and value.strip():
+                    config[key] = [item.strip() for item in value.split(',') if item.strip()]
+                    logger.info(f"Converting to list: {value} → {config[key]}")
+                else:
+                    config[key] = []
+            else:
+                config[key] = value
+
+            # Verify the conversion worked
+            logger.info(f"Updated '{key}' to: {config[key]} (type: {type(config[key]).__name__})")
+
+        except (ValueError, TypeError) as e:
+            logger.error(f"Failed to update '{key}': {e}")
+
+
 def normalize_path(path):
     """Normalize and convert paths to Unix format."""
     return str(path.as_posix())
@@ -123,23 +232,110 @@ def convert_audio_to_wav(input_path, output_path, sample_rate=44100, channels=2)
         return False
 
 
+# Authentication routes
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Login page for password-protected web UI."""
+    web_password = config.get('web_password', '')
+    
+    # If no password set, redirect to main page
+    if not web_password or not web_password.strip():
+        return redirect(url_for('index'))
+    
+    if request.method == "POST":
+        password = request.form.get('password', '')
+        if password == web_password:
+            session['authenticated'] = True
+            session.permanent = True  # Keep session across browser restarts
+            next_url = request.args.get('next') or url_for('index')
+            return redirect(next_url)
+        else:
+            flash('Incorrect password', 'error')
+    
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    """Logout and clear session."""
+    session.pop('authenticated', None)
+    return redirect(url_for('login'))
+
+
+@app.route("/api/password/set", methods=["POST"])
+@login_required
+def set_password():
+    """Set or update web UI password."""
+    try:
+        data = request.get_json()
+        password = data.get('password', '').strip()
+        
+        if not password:
+            return jsonify({'success': False, 'message': 'Password cannot be empty'}), 400
+        
+        # Update config
+        config['web_password'] = password
+        
+        # Save to file
+        with config_path.open('w') as f:
+            yaml.dump(config, f)
+        
+        logger.info("Web UI password set/updated")
+        return jsonify({'success': True, 'message': 'Password protection enabled'})
+    except Exception as e:
+        logger.error(f"Error setting password: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route("/api/password/remove", methods=["POST"])
+@login_required
+def remove_password():
+    """Remove web UI password protection."""
+    try:
+        # Remove or clear password
+        config['web_password'] = ''
+        
+        # Save to file
+        with config_path.open('w') as f:
+            yaml.dump(config, f)
+        
+        # Clear session
+        session.pop('authenticated', None)
+        
+        logger.info("Web UI password protection disabled")
+        return jsonify({'success': True, 'message': 'Password protection disabled'})
+    except Exception as e:
+        logger.error(f"Error removing password: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route("/")
+@login_required
 def index():
     return render_template("index.html")
 
 
 @app.route("/<filename>", methods=["GET"])
+@login_required
 def download_file(filename):
     """Download a file dynamically from the recordings folder."""
     return send_from_directory(recordings_path, filename, as_attachment=True)
 
 
 @app.route("/delete/<filename>", methods=["POST"])
+@login_required
 def delete_file(filename):
     """Delete a specific recording."""
     file_path = recordings_path / filename
     try:
         file_path.unlink()
+        # Clean up metadata
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+            metadata_mgr.remove_recording(filename)
+        except Exception as meta_error:
+            logger.warning(f"Failed to clean up metadata for {filename}: {meta_error}")
         return jsonify({"success": True, "message": f"{filename} has been deleted."})
     except Exception as e:
         return jsonify(
@@ -148,31 +344,162 @@ def delete_file(filename):
 
 
 @app.route("/api/recordings")
+@login_required
 def get_recordings():
-    """API route to get a list of all recordings."""
+    """API route to get a list of all recordings with AI metadata."""
     try:
-        # List directory contents if it exists
-        if recordings_path.exists() and recordings_path.is_dir():
-            all_items = list(sorted(recordings_path.iterdir(), key=lambda f:f.stat().st_mtime, reverse=True))
-            logger.info(f"Directory contains {len(all_items)} items")
-
-            # List all items with their types
-            for item in all_items:
-                logger.info(f"  - {item.name} ({'file' if item.is_file() else 'dir'})")
-
-            files = [f.name for f in all_items if f.is_file()]
-            logger.info(f"Found {len(files)} files: {files}")
-            return jsonify(files)
-        else:
-            logger.error(f"Recordings path is not a valid directory: {recordings_path}")
-            return jsonify({"error": "Recordings directory not found"}), 404
+        # Try to use metadata manager if available
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+            recordings = metadata_mgr.get_all_recordings()
+            
+            # Return with metadata
+            return jsonify([
+                {
+                    'filename': rec['filename'],
+                    'title': rec.get('ai_metadata', {}).get('summary') if rec.get('ai_metadata') else rec['filename'],
+                    'speaker_names': rec.get('ai_metadata', {}).get('speaker_names', []) if rec.get('ai_metadata') else [],
+                    'category': rec.get('ai_metadata', {}).get('category') if rec.get('ai_metadata') else None,
+                    'transcription': rec.get('ai_metadata', {}).get('transcription') if rec.get('ai_metadata') else None,
+                    'processing_status': rec.get('ai_metadata', {}).get('processing_status') if rec.get('ai_metadata') else None,
+                    'confidence': rec.get('ai_metadata', {}).get('confidence') if rec.get('ai_metadata') else None,
+                    'created_at': rec.get('created_at'),
+                    'file_size': rec.get('file_size_bytes')
+                }
+                for rec in recordings
+            ])
+        except ImportError:
+            # Fallback to simple file list if AI components not available
+            logger.warning("Metadata manager not available, returning simple file list")
+            if recordings_path.exists() and recordings_path.is_dir():
+                all_items = list(sorted(recordings_path.iterdir(), key=lambda f:f.stat().st_mtime, reverse=True))
+                # Only include WAV files, exclude metadata JSON and other files
+                files = [f.name for f in all_items if f.is_file() and f.suffix.lower() == '.wav']
+                return jsonify(files)
+            else:
+                logger.error(f"Recordings path is not a valid directory: {recordings_path}")
+                return jsonify({"error": "Recordings directory not found"}), 404
 
     except Exception as e:
         logger.error(f"Error accessing recordings directory: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/transcription/<filename>")
+def get_transcription(filename):
+    """Get full transcription for a recording."""
+    try:
+        from metadata_manager import MetadataManager
+        metadata_mgr = MetadataManager(recordings_path)
+        metadata = metadata_mgr.get_metadata(filename)
+        
+        if not metadata or 'ai_metadata' not in metadata:
+            return jsonify({
+                'transcription': None,
+                'status': 'not_processed'
+            })
+        
+        return jsonify({
+            'transcription': metadata['ai_metadata'].get('transcription'),
+            'status': metadata['ai_metadata'].get('processing_status'),
+            'speaker_names': metadata['ai_metadata'].get('speaker_names', []),
+            'category': metadata['ai_metadata'].get('category'),
+            'confidence': metadata['ai_metadata'].get('confidence')
+        })
+    except Exception as e:
+        logger.error(f"Error getting transcription: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/process-pending", methods=["POST"])
+def process_pending_recordings():
+    """Manually trigger processing of all unprocessed recordings."""
+    try:
+        from metadata_manager import MetadataManager
+        import subprocess
+        
+        metadata_mgr = MetadataManager(recordings_path)
+        
+        # Reset failed, processing, and skipped (legacy) recordings to pending
+        reset_count = 0
+        data = metadata_mgr._read_metadata()
+        for filename, rec in data['recordings'].items():
+            ai_meta = rec.get('ai_metadata', {})
+            status = ai_meta.get('processing_status')
+            
+            # Reset failed, stuck processing, or skipped (legacy) recordings
+            if status in ['failed', 'processing', 'skipped']:
+                data['recordings'][filename]['ai_metadata'] = {
+                    'processing_status': 'pending'
+                }
+                reset_count += 1
+                logger.info(f"Reset {filename} from {status} to pending")
+        
+        # Write updated metadata
+        if reset_count > 0:
+            metadata_mgr._write_metadata(data)
+            logger.info(f"Reset {reset_count} recordings to pending status")
+        
+        # Get all unprocessed (including newly reset ones)
+        unprocessed = metadata_mgr.get_unprocessed_recordings()
+        total_count = len(unprocessed)
+        
+        # Trigger immediate processing by touching signal file
+        try:
+            trigger_file = recordings_path / '.force_process_trigger'
+            trigger_file.touch()
+            logger.info("Created force process trigger file")
+        except Exception as e:
+            logger.warning(f"Could not create trigger file: {e}")
+        
+        # User-facing message focuses on how many will be processed
+        if total_count > 0:
+            message = f"Queued {total_count} recording(s) for processing."
+        else:
+            message = "No unprocessed recordings found."
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'reset_count': reset_count,
+            'total_count': total_count
+        })
+            
+    except Exception as e:
+        logger.error(f"Error processing pending recordings: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
+
+
+def validate_openai_api_key(api_key):
+    """Validate OpenAI API key by making a test request."""
+    if not api_key or len(api_key) < 20:
+        return False, "API key is too short or empty"
+    
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        
+        # Test with a minimal API call to list models
+        # This verifies the key works and has basic permissions
+        models = client.models.list()
+        return True, "API key verified successfully"
+    except Exception as e:
+        error_msg = str(e)
+        if "invalid_api_key" in error_msg.lower() or "incorrect api key" in error_msg.lower():
+            return False, "Invalid API key"
+        elif "insufficient" in error_msg.lower() or "permission" in error_msg.lower():
+            return False, "API key lacks required permissions"
+        elif "rate_limit" in error_msg.lower():
+            return False, "Rate limit exceeded - try again in a moment"
+        else:
+            return False, f"Verification failed: {error_msg[:100]}"
+
 @app.route("/config", methods=["GET", "POST"])
+@login_required
 def edit_config():
     """Handle GET and POST requests to edit the configuration."""
     if request.method == "POST":
@@ -180,6 +507,37 @@ def edit_config():
         for key, value in request.form.items():
             logger.info(f"  {key}: {value}")
         try:
+            # Validate OpenAI API key if it was changed
+            if 'openai_api_key' in request.form:
+                new_api_key = request.form['openai_api_key'].strip()
+                old_api_key = config.get('openai_api_key', '')
+                
+                # Only validate if the key actually changed and is not empty
+                if new_api_key and new_api_key != old_api_key:
+                    logger.info("Validating new OpenAI API key...")
+                    is_valid, message = validate_openai_api_key(new_api_key)
+                    
+                    if not is_valid:
+                        logger.error(f"API key validation failed: {message}")
+                        flash(f"OpenAI API Key Error: {message}", "error")
+                        return redirect(url_for("edit_config"))
+                    else:
+                        logger.info("API key validated successfully")
+                        config['openai_key_verified'] = True
+                        flash("OpenAI API key verified successfully!", "success")
+                        # Clear any prior AI error now that key is valid
+                        _clear_last_openai_error()
+                elif not new_api_key and old_api_key:
+                    # Key was cleared - this is intentional removal
+                    config['openai_key_verified'] = False
+                elif not new_api_key and not old_api_key:
+                    # Both empty - user is trying to enable auto-process without a key
+                    if request.form.get('openai_auto_process') == 'true':
+                        logger.error("Attempted to enable auto-process without API key")
+                        flash("OpenAI API Key Error: Please provide an API key before enabling auto-processing", "error")
+                        return redirect(url_for("edit_config"))
+                # else: new_api_key is empty but old_api_key exists - user is just saving other settings, keep existing key
+            
             # Track which fields had file uploads
             uploaded_fields = []
             
@@ -247,6 +605,10 @@ def edit_config():
             with config_path.open("w") as f:
                 yaml.dump(config, f)
 
+            # If API key was removed via this save, clear any previous error
+            if not config.get('openai_api_key'):
+                _clear_last_openai_error()
+
             # Restart the audioGuestBook service to apply changes
             try:
                 subprocess.run(["sudo", "systemctl", "restart", "audioGuestBook.service"], check=True)
@@ -269,6 +631,13 @@ def edit_config():
     except FileNotFoundError as e:
         logger.error(f"Configuration file not found: {e}")
         current_config = {}
+
+    # Normalize list fields that might have been stored as strings
+    for lf in ("openai_ignored_names", "openai_categories"):
+        val = current_config.get(lf)
+        if isinstance(val, str):
+            parts = re.split(r"[,\n]", val)
+            current_config[lf] = [p.strip() for p in parts if p and p.strip()]
 
     # Get available audio files for each type
     available_greetings = get_audio_files("greetings")
@@ -585,50 +954,6 @@ def shutdown():
             {"success": False, "message": "Failed to shut down the system!"}
         ), 500
 
-
-def update_config(form_data, skip_fields=None):
-    """Update the YAML configuration with form data."""
-    if skip_fields is None:
-        skip_fields = []
-    
-    for key, value in form_data.items():
-        # Skip CSRF token if it exists
-        if key == 'csrf_token':
-            continue
-        
-        # Skip fields that had file uploads (already updated)
-        if key in skip_fields:
-            logger.info(f"Skipping '{key}' - file was uploaded")
-            continue
-
-        # Check if key exists in config
-        if key not in config and key != 'invert_hook':
-            logger.warning(f"Form field '{key}' not found in config, skipping")
-            continue
-
-        # Log the conversion attempt
-        logger.info(f"Updating '{key}': {config.get(key, 'Not set')} (type: {type(config.get(key, '')).__name__}) → '{value}'")
-
-        try:
-            # Convert value based on the type in config or for new boolean fields
-            if key == 'invert_hook' or isinstance(config.get(key), bool):
-                # Convert string to boolean
-                new_value = (value.lower() == "true")
-                logger.info(f"Converting to boolean: {value} → {new_value}")
-                config[key] = new_value
-            elif isinstance(config.get(key), int):
-                config[key] = int(value)
-            elif isinstance(config.get(key), float):
-                config[key] = float(value)
-            else:
-                config[key] = value
-
-            # Verify the conversion worked
-            logger.info(f"Updated '{key}' to: {config[key]} (type: {type(config[key]).__name__})")
-
-        except (ValueError, TypeError) as e:
-            logger.error(f"Failed to update '{key}': {e}")
-
 @app.route("/api/system-status")
 def system_status():
     """Return basic system information for the dashboard."""
@@ -653,6 +978,96 @@ def system_status():
         logger.error(f"Error getting system status: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
+
+# WiFi Management Endpoints
+@app.route("/api/wifi/scan")
+def wifi_scan():
+    """Scan for available WiFi networks."""
+    try:
+        from wifi_manager import WiFiManager
+        networks = WiFiManager.scan_networks()
+        return jsonify({"success": True, "networks": networks})
+    except Exception as e:
+        logger.error(f"WiFi scan failed: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/current")
+def wifi_current():
+    """Get currently connected network."""
+    try:
+        from wifi_manager import WiFiManager
+        current = WiFiManager.get_current_network()
+        return jsonify({"success": True, "network": current})
+    except Exception as e:
+        logger.error(f"Failed to get current network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/saved")
+def wifi_saved():
+    """Get list of saved WiFi networks."""
+    try:
+        from wifi_manager import WiFiManager
+        networks = WiFiManager.get_saved_networks()
+        return jsonify({"success": True, "networks": networks})
+    except Exception as e:
+        logger.error(f"Failed to get saved networks: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/add", methods=["POST"])
+def wifi_add():
+    """Add a new WiFi network."""
+    try:
+        data = request.get_json()
+        ssid = data.get('ssid', '').strip()
+        password = data.get('password', '').strip()
+        priority = int(data.get('priority', 4))
+        
+        if not ssid:
+            return jsonify({"success": False, "message": "SSID is required"}), 400
+        if not password:
+            return jsonify({"success": False, "message": "Password is required"}), 400
+        
+        from wifi_manager import WiFiManager
+        success, message = WiFiManager.add_network(ssid, password, priority)
+        
+        if success:
+            return jsonify({"success": True, "message": message})
+        else:
+            return jsonify({"success": False, "message": message}), 400
+            
+    except Exception as e:
+        logger.error(f"Failed to add network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route("/api/wifi/delete", methods=["POST"])
+def wifi_delete():
+    """Delete a saved WiFi network."""
+    try:
+        data = request.get_json()
+        logger.info(f"WiFi delete request received. Data: {data}")
+        ssid = data.get('ssid', '').strip()
+        logger.info(f"SSID after strip: '{ssid}'")
+        
+        if not ssid:
+            return jsonify({"success": False, "message": "SSID is required"}), 400
+        
+        from wifi_manager import WiFiManager
+        success, message = WiFiManager.delete_network(ssid)
+        
+        if success:
+            return jsonify({"success": True, "message": message})
+        else:
+            return jsonify({"success": False, "message": message}), 400
+            
+    except Exception as e:
+        logger.error(f"Failed to delete network: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route("/delete-recordings", methods=["POST"])
 def delete_recordings():
     """Delete multiple recordings in bulk."""
@@ -664,6 +1079,14 @@ def delete_recordings():
         deleted_files = []
         failed_files = []
 
+        # Initialize metadata manager for cleanup
+        try:
+            from metadata_manager import MetadataManager
+            metadata_mgr = MetadataManager(recordings_path)
+        except Exception as e:
+            logger.warning(f"Metadata manager not available: {e}")
+            metadata_mgr = None
+        
         for filename in data['ids']:
             file_path = recordings_path / filename
             try:
@@ -671,6 +1094,12 @@ def delete_recordings():
                     file_path.unlink()
                     deleted_files.append(filename)
                     logger.info(f"Successfully deleted: {filename}")
+                    # Clean up metadata
+                    if metadata_mgr:
+                        try:
+                            metadata_mgr.remove_recording(filename)
+                        except Exception as meta_error:
+                            logger.warning(f"Failed to clean up metadata for {filename}: {meta_error}")
                 else:
                     failed_files.append(filename)
                     logger.warning(f"File not found: {filename}")
@@ -702,7 +1131,7 @@ def delete_recordings():
 
 if __name__ == "__main__":
     # Print summary of configuration for debugging
-    logger.info("=== Starting Audio Guestbook Server ===")
+    logger.info("=== Starting BLACK BOX Server ===")
     logger.info(f"Static files location: {STATIC_DIR}")
     logger.info(f"Recordings location: {recordings_path}")
     logger.info("=====================================")

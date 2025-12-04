@@ -1,0 +1,3 @@
+# Allow gpio group to access /dev/mem for WS281x/NeoPixel LED control
+# This is required for rpi_ws281x library used by adafruit-circuitpython-neopixel
+SUBSYSTEM=="mem", KERNEL=="mem", GROUP="gpio", MODE="0660"

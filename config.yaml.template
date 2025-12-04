@@ -1,13 +1,12 @@
 # ============================================================================
-# Configuration for Rotary Phone Audio Guestbook
+# Configuration Template for Rotary Phone Audio Guestbook
 # ============================================================================
 # IMPORTANT: When adding new config options, update BOTH files:
-#   1. config.yaml (this file)
-#   2. config.yaml.template (the template file)
+#   1. config.yaml (your actual config)
+#   2. config.yaml.template (this file)
 #
-# Why? The deploy.sh script uses the template to merge configs safely.
-# Fields only in config.yaml may be lost on deployment.
-# Fields only in template won't appear in web UI until merged.
+# Why? The deploy.sh script uses this template to merge configs safely,
+# preserving user settings while adding new default fields.
 # ============================================================================
 
 alsa_hw_mapping: plughw:1,0
@@ -62,15 +61,18 @@ delete_invalid_recordings: true  # Whether to automatically delete invalid recor
 shutdown_gpio: 0 #Set GPIO pin here --> Note: Pin is active LOW, pull Pin to GND to activate shutdown
 shutdown_button_hold_time: 2 # default 2 seconds
 
+# Web UI Security
+web_password: ""  # Password for web UI access (leave empty to disable)
+
 # OpenAI AI Processing Configuration
+openai_auto_process: false               # Auto-process new recordings (true = automatic, false = manual via "Process Now" button)
 openai_api_key: ""                      # OpenAI API key (starts with sk-)
-openai_auto_process: true                # Auto-process new recordings (true = automatic, false = manual via "Process Now" button)
 openai_gpt_model: "gpt-5-nano"       # Fastest reasoning model variant; we disable heavy reasoning (minimal)
+openai_language: "en"                    # Language code (en, es, fr, etc., or "auto")
+openai_ignored_names: []                 # Names to exclude from speaker detection (e.g. bride/groom names)
+openai_categories: ["joyful", "heartfelt", "humorous", "nostalgic", "advice", "blessing", "toast", "gratitude", "apology", "other"]  # Available emotional categories for AI classification
 openai_processing_cooldown: 0            # PHASE 2 TEST: Immediate processing (0 = no delay)
 openai_allow_processing_during_call: true   # PHASE 2 TEST: Process while phone in use
-openai_language: "en"                    # Language code (en, es, fr, etc., or "auto")
-openai_ignored_names: ["Cam", "Lara"]   # Names to exclude from speaker detection (bride/groom names)
-openai_categories: ["joyful", "heartfelt", "humorous", "nostalgic", "advice", "blessing", "toast", "gratitude", "apology", "other"]  # Available emotional categories for AI classification
 openai_compress_audio: true              # Convert WAV to MP3 before upload (saves 90% bandwidth)
 openai_convert_to_mono: true             # Convert stereo to mono for speech (saves 50% bandwidth)
 openai_target_sample_rate: 16000         # Target sample rate for compression (16000 = speech optimized)

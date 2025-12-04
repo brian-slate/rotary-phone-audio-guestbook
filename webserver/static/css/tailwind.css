@@ -1,6 +1,24 @@
 @tailwind base;
 @tailwind components;
 
+/* Label Maker Base Styles */
+@layer base {
+  * {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  }
+  
+  body {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+}
+
 /* Button Components */
 @layer components {
   .btn-danger {
@@ -15,26 +33,60 @@
     @apply bg-accent dark:bg-dark-accent text-white rounded hover:bg-accent/80 hover:dark:bg-dark-accent/80 transition-colors;
   }
 
-  /* Modern button styles */
+  /* Label Maker Button Styles */
+  .btn-label {
+    @apply px-6 py-3 font-black uppercase tracking-widest border-4 border-black transition-all;
+  }
+  
+  .btn-label-primary {
+    @apply btn-label bg-yellow-400 dark:bg-yellow-400 text-black hover:bg-yellow-500 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px];
+  }
+  
+  .btn-label-secondary {
+    @apply btn-label bg-black dark:bg-yellow-400 text-yellow-400 dark:text-black border-black dark:border-yellow-400 hover:bg-gray-800 dark:hover:bg-yellow-500;
+  }
+  
+  .btn-label-danger {
+    @apply btn-label bg-red-500 text-white hover:bg-red-600 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px];
+  }
+
+  /* Legacy button styles */
   .btn-modern {
-    @apply px-4 py-2 rounded-md shadow-sm font-medium transition-colors duration-200;
+    @apply px-4 py-2 font-bold transition-colors duration-200 border-2 border-black dark:border-white uppercase tracking-wider;
   }
 
   .btn-modern-primary {
-    @apply btn-modern bg-blue-500 hover:bg-blue-600 text-white;
+    @apply btn-modern bg-yellow-400 hover:bg-yellow-500 text-black border-black;
   }
 
   .btn-modern-danger {
-    @apply btn-modern bg-red-500 hover:bg-red-600 text-white;
+    @apply btn-modern bg-red-500 hover:bg-red-600 text-white border-black dark:border-white;
+  }
+
+  /* Label Maker Card Styles */
+  .card {
+    @apply border-4 border-black dark:border-yellow-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(252,211,77,1)];
+  }
+  
+  /* Checkerboard divider pattern */
+  .checkerboard-divider {
+    height: 12px;
+    background-image: 
+      linear-gradient(45deg, currentColor 25%, transparent 25%),
+      linear-gradient(-45deg, currentColor 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, currentColor 75%),
+      linear-gradient(-45deg, transparent 75%, currentColor 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
   }
 
   /* Table styling improvements */
   .table-header {
-    @apply bg-primary dark:bg-dark-primary text-text dark:text-dark-text p-3 font-semibold;
+    @apply bg-yellow-400 dark:bg-dark-primary text-black dark:text-yellow-400 p-3 font-bold uppercase tracking-wider border-2 border-black dark:border-yellow-400;
   }
 
   .table-row {
-    @apply border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors;
+    @apply border-b-2 border-black dark:border-gray-700 hover:bg-yellow-100 dark:hover:bg-gray-800 transition-colors;
   }
 
   .space-x-4>*+* {

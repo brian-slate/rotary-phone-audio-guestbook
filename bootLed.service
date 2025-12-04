@@ -1,7 +1,8 @@
 [Unit]
 Description=Boot LED Animation - Amber breathing while system starts
-After=basic.target
-Before=audioGuestBook.service
+DefaultDependencies=no
+Before=basic.target
+After=local-fs.target systemd-modules-load.service
 
 [Service]
 Type=simple
@@ -11,4 +12,4 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=sysinit.target

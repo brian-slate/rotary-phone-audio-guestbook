@@ -1,5 +1,5 @@
 /**
- * Enhanced Theme Switcher for Rotary Phone Audio Guestbook
+ * Enhanced Theme Switcher for BLACK BOX
  * Handles light/dark mode toggle with robust error handling
  */
 
@@ -22,24 +22,21 @@
 
   // DOM element references
   let elements = {
-    themeIcon: null,
-    homeIcon: null,
-    settingsIcon: null,
+    themeIconFa: null,
+    themeLabel: null,
     toggleSwitch: null
   };
 
   // Update references to DOM elements
   function updateDomReferences() {
-    elements.themeIcon = document.getElementById("theme-icon");
-    elements.homeIcon = document.getElementById("home-icon");
-    elements.settingsIcon = document.getElementById("settings-icon");
-    elements.toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+    elements.themeIconFa = document.getElementById("theme-icon-fa");
+    elements.themeLabel = document.getElementById("theme-label");
+    elements.toggleSwitch = document.querySelector('.theme-switch input');
 
     // Log what was found for debugging
     console.log("DOM elements found:", {
-      themeIcon: !!elements.themeIcon,
-      homeIcon: !!elements.homeIcon,
-      settingsIcon: !!elements.settingsIcon,
+      themeIconFa: !!elements.themeIconFa,
+      themeLabel: !!elements.themeLabel,
       toggleSwitch: !!elements.toggleSwitch
     });
   }
@@ -55,18 +52,26 @@
       // Apply correct class to document element
       if (theme === THEME.DARK) {
         document.documentElement.classList.add("dark");
-
-        // Update icons if they exist
-        if (elements.themeIcon) elements.themeIcon.src = IMAGES.MOON;
-        if (elements.homeIcon) elements.homeIcon.src = IMAGES.HOME_DARK;
-        if (elements.settingsIcon) elements.settingsIcon.src = IMAGES.GEAR_DARK;
+        // Update FontAwesome icon - show sun because clicking will go to light
+        if (elements.themeIconFa) {
+          elements.themeIconFa.classList.remove('fa-sun');
+          elements.themeIconFa.classList.add('fa-moon');
+        }
+        // Update label text - show what it will switch TO
+        if (elements.themeLabel) {
+          elements.themeLabel.textContent = 'Light';
+        }
       } else {
         document.documentElement.classList.remove("dark");
-
-        // Update icons if they exist
-        if (elements.themeIcon) elements.themeIcon.src = IMAGES.SUN;
-        if (elements.homeIcon) elements.homeIcon.src = IMAGES.HOME_LIGHT;
-        if (elements.settingsIcon) elements.settingsIcon.src = IMAGES.GEAR_LIGHT;
+        // Update FontAwesome icon - show moon because clicking will go to dark
+        if (elements.themeIconFa) {
+          elements.themeIconFa.classList.remove('fa-moon');
+          elements.themeIconFa.classList.add('fa-sun');
+        }
+        // Update label text - show what it will switch TO
+        if (elements.themeLabel) {
+          elements.themeLabel.textContent = 'Dark';
+        }
       }
 
       // Update toggle switch state if it exists
@@ -129,7 +134,7 @@
 
     // Set up event delegation as a backup
     document.addEventListener("change", function (e) {
-      if (e.target.matches('.theme-switch input[type="checkbox"]')) {
+      if (e.target.matches('.theme-switch input')) {
         console.log("Theme toggle changed via delegation");
         setTheme(e.target.checked ? THEME.DARK : THEME.LIGHT);
       }

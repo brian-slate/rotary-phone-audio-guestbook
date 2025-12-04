@@ -4,7 +4,7 @@
 
 # Raspberry Pi (target device)
 RPI_USER="admin"
-RPI_HOST="${1:-camphone}"  # Use provided hostname/IP or default to camphone
+RPI_HOST="${1:-blackbox}"  # Use provided hostname/IP or default to blackbox
 RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 RPI_SYSTEMD_DIR="/etc/systemd/system"
 
@@ -33,6 +33,74 @@ rsync -avz --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI
 # Step 2: SSH into the Raspberry Pi to execute commands there
 echo "Connecting to Raspberry Pi to complete deployment..."
 ssh ${RPI_USER}@${RPI_HOST} <<ENDSSH
+    # Install system dependencies
+    echo "Installing system dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y ffmpeg python3-venv
+    
+    # Ensure user is in gpio group for hardware access
+    if ! groups | grep -q gpio; then
+        echo "Adding ${RPI_USER} to gpio group..."
+        sudo usermod -a -G gpio ${RPI_USER}
+        echo "Note: GPIO group added. You may need to log out/in for changes to take effect."
+    fi
+    
+    # Ensure venv exists and has pip
+    cd ${RPI_PROJECT_DIR}
+    if [ ! -d ".venv" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv .venv
+        echo "Installing pip setuptools wheel..."
+        .venv/bin/pip install --upgrade pip setuptools wheel
+        # Force install on new venv
+        FORCE_INSTALL=true
+    else
+        FORCE_INSTALL=false
+    fi
+    
+    # Check if requirements.txt changed
+    REQUIREMENTS_CHANGED=false
+    if [ -f "requirements.txt" ]; then
+        if [ -f ".requirements.txt.md5" ]; then
+            OLD_MD5=\$(cat .requirements.txt.md5)
+            NEW_MD5=\$(md5sum requirements.txt | cut -d' ' -f1)
+            if [ "\$OLD_MD5" != "\$NEW_MD5" ]; then
+                REQUIREMENTS_CHANGED=true
+                echo "Detected requirements change (old: \$OLD_MD5, new: \$NEW_MD5)"
+            fi
+        else
+            REQUIREMENTS_CHANGED=true
+            echo "No previous requirements hash found, will install packages"
+        fi
+    fi
+    
+    # Install packages if requirements changed OR venv was just created
+    if [ "\$REQUIREMENTS_CHANGED" = "true" ] || [ "\$FORCE_INSTALL" = "true" ]; then
+        echo "Installing Python packages..."
+        echo "Stopping services to free up resources..."
+        sudo systemctl stop audioGuestBook.service audioGuestBookWebServer.service 2>/dev/null || true
+        
+        if [ -f "requirements.txt" ]; then
+            # Install into venv using pip
+            echo "Installing from requirements.txt..."
+            .venv/bin/pip install -r requirements.txt
+            md5sum requirements.txt | cut -d' ' -f1 > .requirements.txt.md5
+            echo "Packages installed successfully"
+        else
+            echo "Warning: requirements.txt not found, installing base packages..."
+            .venv/bin/pip install openai requests flask gunicorn gevent gpiozero ruamel-yaml psutil
+        fi
+    else
+        echo "Requirements unchanged (MD5: \$(cat .requirements.txt.md5 2>/dev/null || echo 'unknown')), skipping package installation"
+    fi
+    
+    # Merge config.yaml to preserve user settings while adding new defaults
+    bash ${RPI_PROJECT_DIR}/scripts/merge_config_remote.sh ${RPI_PROJECT_DIR}
+    
+    # Configure passwordless sudo for WiFi management
+    echo "Configuring WiFi management permissions..."
+    bash ${RPI_PROJECT_DIR}/scripts/configure-wifi-sudo.sh
+    
     # Copy service files to systemd directory
     echo "Copying service files to systemd directory..."
     sudo cp ${RPI_PROJECT_DIR}/*.service ${RPI_SYSTEMD_DIR}/
