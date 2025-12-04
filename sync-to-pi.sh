@@ -10,6 +10,14 @@ RPI_PROJECT_DIR="/home/${RPI_USER}/rotary-phone-audio-guestbook"
 
 echo "=== Syncing code to Raspberry Pi at ${RPI_HOST} ==="
 
+# Build frontend assets locally (CSS/JS)
+echo "Building frontend assets (Tailwind/PostCSS)..."
+if command -v npm >/dev/null 2>&1; then
+    (cd webserver && npm ci --no-audit --no-fund && npm run build) || { echo "Frontend build failed"; exit 1; }
+else
+    echo "npm not found - skipping frontend build"
+fi
+
 # Sync files (excluding recordings, backups, etc.)
 rsync -avz --exclude-from='./rsync-exclude.txt' \
     --exclude '.git' \

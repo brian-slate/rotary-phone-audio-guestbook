@@ -26,6 +26,14 @@ BACKUP_DIR="./backup"
 echo "=== Starting Deploy Script ==="
 echo "Target: ${RPI_HOST}"
 
+# Step 0: Build frontend assets locally (CSS/JS)
+echo "Building frontend assets (Tailwind/PostCSS)..."
+if command -v npm >/dev/null 2>&1; then
+    (cd webserver && npm ci --no-audit --no-fund && npm run build) || { echo "Frontend build failed"; exit 1; }
+else
+    echo "npm not found - skipping frontend build"
+fi
+
 # Step 1: Sync files from local machine to Raspberry Pi
 echo "Syncing files from local machine to Raspberry Pi..."
 rsync -avz --exclude-from='./rsync-exclude.txt' ./ ${RPI_USER}@${RPI_HOST}:${RPI_PROJECT_DIR}/

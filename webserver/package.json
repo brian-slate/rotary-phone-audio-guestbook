@@ -1,12 +1,16 @@
 {
   "name": "rotary-phone-audio-guestbook",
   "version": "1.0.0",
-  "description": "BLACK BOX - A retro-modern voice recording system using a vintage rotary phone."
+  "private": true,
+  "description": "BLACK BOX - A retro-modern voice recording system using a vintage rotary phone.",
   "main": "index.js",
   "directories": {
     "test": "tests"
   },
   "scripts": {
+    "build:css": "npx tailwindcss -c tailwind.config.js -i ./static/css/tailwind.css -o ./static/css/output.css && npx postcss ./static/css/output.css -o ./static/css/output.min.css",
+    "build": "npm run build:css",
+    "clean": "rm -f static/css/output.css static/css/output.min.css",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
