@@ -9,24 +9,108 @@
 
 <!-- Search and Filter Controls -->
 <div class="mb-4 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-  <div class="flex flex-col sm:flex-row gap-2">
-    <!-- Search Bar -->
-    <div class="flex-1 relative">
-      <input type="text" id="search-input" placeholder="Search recordings..." 
-             class="w-full px-3 py-2 pr-10 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-      <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+  <!-- Mobile: Search + Toggle -->
+  <div class="md:hidden space-y-3">
+    <div class="flex gap-2">
+      <div class="flex-1 relative">
+        <input type="text" id="search-input" placeholder="Search recordings..." 
+               class="w-full px-3 py-2 pr-10 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <button id="clear-search-mobile" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <i class="fas fa-times text-sm"></i>
+        </button>
+      </div>
+      <button id="toggle-filters-mobile" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <i class="fas fa-filter"></i>
+      </button>
     </div>
-    <select id="search-field" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+    <div id="mobile-filters" class="hidden space-y-2">
+      <select id="search-field" class="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+        <option value="title">Search in: Title</option>
+        <option value="transcript">Search in: Transcript</option>
+        <option value="both">Search in: Both</option>
+      </select>
+      <select id="filter-speaker" class="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+        <option value="">All Speakers</option>
+      </select>
+      <select id="filter-category" class="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+        <option value="">All Categories</option>
+        <option value="joyful">Joyful</option>
+        <option value="heartfelt">Heartfelt</option>
+        <option value="humorous">Humorous</option>
+        <option value="nostalgic">Nostalgic</option>
+        <option value="advice">Advice</option>
+        <option value="blessing">Blessing</option>
+        <option value="toast">Toast</option>
+        <option value="gratitude">Gratitude</option>
+        <option value="apology">Apology</option>
+        <option value="well-wishes">Well Wishes</option>
+        <option value="playful">Playful</option>
+        <option value="introduction">Introduction</option>
+        <option value="announcement">Announcement</option>
+      </select>
+    </div>
+  </div>
+  
+  <!-- Tablet (md): Search + Field on top, Speakers/Category below -->
+  <div class="hidden md:flex lg:hidden flex-col gap-2">
+    <div class="flex gap-2">
+      <div class="flex-1 relative">
+        <input type="text" id="search-input-md" placeholder="Search recordings..." 
+               class="w-full px-3 py-2 pr-10 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+        <button id="clear-search-md" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <i class="fas fa-times text-sm"></i>
+        </button>
+      </div>
+      <select id="search-field-md" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 whitespace-nowrap">
+        <option value="title">Title</option>
+        <option value="transcript">Transcript</option>
+        <option value="both">Both</option>
+      </select>
+    </div>
+    <div class="flex gap-2">
+      <select id="filter-speaker-md" class="flex-1 px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+        <option value="">All Speakers</option>
+      </select>
+      <select id="filter-category-md" class="flex-1 px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+        <option value="">All Categories</option>
+        <option value="joyful">Joyful</option>
+        <option value="heartfelt">Heartfelt</option>
+        <option value="humorous">Humorous</option>
+        <option value="nostalgic">Nostalgic</option>
+        <option value="advice">Advice</option>
+        <option value="blessing">Blessing</option>
+        <option value="toast">Toast</option>
+        <option value="gratitude">Gratitude</option>
+        <option value="apology">Apology</option>
+        <option value="well-wishes">Well Wishes</option>
+        <option value="playful">Playful</option>
+        <option value="introduction">Introduction</option>
+        <option value="announcement">Announcement</option>
+      </select>
+      <button id="clear-filters-md" class="px-3 py-2 text-sm rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors whitespace-nowrap">
+        <i class="fas fa-undo text-xs"></i>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Desktop (lg+): All in one row, icon-only reset -->
+  <div class="hidden lg:flex gap-2">
+    <div class="flex-1 relative">
+      <input type="text" id="search-input-lg" placeholder="Search recordings..." 
+             class="w-full px-3 py-2 pr-10 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+      <button id="clear-search-lg" class="hidden absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+        <i class="fas fa-times text-sm"></i>
+      </button>
+    </div>
+    <select id="search-field-lg" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
       <option value="title">Title</option>
       <option value="transcript">Transcript</option>
       <option value="both">Both</option>
     </select>
-    
-    <!-- Filter Dropdowns -->
-    <select id="filter-speaker" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+    <select id="filter-speaker-lg" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
       <option value="">All Speakers</option>
     </select>
-    <select id="filter-category" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
+    <select id="filter-category-lg" class="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500">
       <option value="">All Categories</option>
       <option value="joyful">Joyful</option>
       <option value="heartfelt">Heartfelt</option>
@@ -42,8 +126,8 @@
       <option value="introduction">Introduction</option>
       <option value="announcement">Announcement</option>
     </select>
-    <button id="clear-filters" class="px-3 py-2 text-sm rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium whitespace-nowrap">
-      <i class="fas fa-undo text-xs mr-1"></i>Reset
+    <button id="clear-filters-lg" class="px-3 py-2 text-sm rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" title="Reset filters">
+      <i class="fas fa-undo text-xs"></i>
     </button>
   </div>
 </div>

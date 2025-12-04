@@ -2705,6 +2705,11 @@ tbody tr {
   color: rgb(37 99 235 / var(--tw-text-opacity));
 }
 
+.hover\:text-gray-600:hover {
+  --tw-text-opacity: 1;
+  color: rgb(75 85 99 / var(--tw-text-opacity));
+}
+
 .hover\:text-gray-700:hover {
   --tw-text-opacity: 1;
   color: rgb(55 65 81 / var(--tw-text-opacity));
@@ -3353,10 +3358,6 @@ tbody tr {
     display: none;
   }
 
-  .sm\:flex-row {
-    flex-direction: row;
-  }
-
   .sm\:gap-4 {
     gap: 1rem;
   }
@@ -3373,6 +3374,10 @@ tbody tr {
 
   .md\:inline {
     display: inline;
+  }
+
+  .md\:flex {
+    display: flex;
   }
 
   .md\:table-cell {
@@ -3422,6 +3427,14 @@ tbody tr {
 
   .lg\:mb-4 {
     margin-bottom: 1rem;
+  }
+
+  .lg\:flex {
+    display: flex;
+  }
+
+  .lg\:hidden {
+    display: none;
   }
 
   .lg\:grid-cols-2 {

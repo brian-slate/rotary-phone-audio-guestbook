@@ -98,22 +98,7 @@
             </h3>
 
             <div class="mb-2">
-              <label for="greeting_mode" class="block mb-1 flex items-center">
-                Greeting Mode
-                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Single: plays selected greeting. Random: plays random greeting from folder. Sequential: cycles through greetings in order.">
-                  <i class="fas fa-info-circle"></i>
-                </span>
-              </label>
-              <select id="greeting_mode" name="greeting_mode" 
-                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
-                <option value="single" {% if config.get('greeting_mode', 'single') == 'single' %}selected{% endif %}>Single Message</option>
-                <option value="random" {% if config.get('greeting_mode') == 'random' %}selected{% endif %}>Random Selection</option>
-                <option value="sequential" {% if config.get('greeting_mode') == 'sequential' %}selected{% endif %}>Sequential (Round-Robin)</option>
-              </select>
-            </div>
-
-            <div class="mb-2">
-              <label for="greeting_select" class="block mb-1">Active Greeting (Single Mode)</label>
+              <label for="greeting_select" class="block mb-1">Active Greeting</label>
               <select id="greeting_select" name="greeting" 
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
                 {% for file in available_greetings %}
@@ -165,6 +150,21 @@
               <input type="number" step="0.1" id="greeting_start_delay" name="greeting_start_delay"
                 value="{{ config['greeting_start_delay'] }}"
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+            </div>
+
+            <div class="mb-2">
+              <label for="greeting_mode" class="block mb-1 flex items-center">
+                Greeting Mode
+                <span class="ml-2 text-gray-500 dark:text-gray-400 cursor-help text-sm" title="Single: plays selected greeting. Random: plays random greeting from folder. Sequential: cycles through greetings in order.">
+                  <i class="fas fa-info-circle"></i>
+                </span>
+              </label>
+              <select id="greeting_mode" name="greeting_mode" 
+                class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text mb-2">
+                <option value="single" {% if config.get('greeting_mode', 'single') == 'single' %}selected{% endif %}>Single Message</option>
+                <option value="random" {% if config.get('greeting_mode') == 'random' %}selected{% endif %}>Random Selection</option>
+                <option value="sequential" {% if config.get('greeting_mode') == 'sequential' %}selected{% endif %}>Sequential (Round-Robin)</option>
+              </select>
             </div>
             
             <!-- Restore Default Button -->

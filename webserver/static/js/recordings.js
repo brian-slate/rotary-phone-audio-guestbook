@@ -711,9 +711,6 @@ function checkForProcessingRecordings() {
 
 // Populate speaker filter with unique speakers from all recordings
 function populateSpeakerFilter() {
-  const speakerSelect = document.getElementById('filter-speaker');
-  if (!speakerSelect) return;
-  
   // Get unique speakers
   const speakers = new Set();
   allRecordings.forEach(recording => {
@@ -722,28 +719,104 @@ function populateSpeakerFilter() {
     }
   });
   
-  // Keep "All Speakers" option and add speakers alphabetically with person icon
-  const currentValue = speakerSelect.value;
-  speakerSelect.innerHTML = '<option value="">All Speakers</option>';
-  Array.from(speakers).sort().forEach(speaker => {
-    const option = document.createElement('option');
-    option.value = speaker;
-    option.textContent = `👤 ${speaker}`;
-    speakerSelect.appendChild(option);
+  // Populate all speaker filter dropdowns across breakpoints
+  ['filter-speaker', 'filter-speaker-md', 'filter-speaker-lg'].forEach(id => {
+    const speakerSelect = document.getElementById(id);
+    if (!speakerSelect) return;
+    
+    const currentValue = speakerSelect.value;
+    speakerSelect.innerHTML = '<option value="">All Speakers</option>';
+    Array.from(speakers).sort().forEach(speaker => {
+      const option = document.createElement('option');
+      option.value = speaker;
+      option.textContent = `👤 ${speaker}`;
+      speakerSelect.appendChild(option);
+    });
+    
+    // Restore previous selection if it still exists
+    if (currentValue && Array.from(speakers).includes(currentValue)) {
+      speakerSelect.value = currentValue;
+    }
+  });
+}
+
+// Get current filter values from any visible breakpoint
+function getFilterValues() {
+  // Try each breakpoint in order
+  let searchInput = document.getElementById('search-input')?.value?.toLowerCase() || 
+                    document.getElementById('search-input-md')?.value?.toLowerCase() || 
+                    document.getElementById('search-input-lg')?.value?.toLowerCase() || '';
+  
+  let searchField = document.getElementById('search-field')?.value || 
+                    document.getElementById('search-field-md')?.value || 
+                    document.getElementById('search-field-lg')?.value || 'title';
+  
+  let filterSpeaker = document.getElementById('filter-speaker')?.value || 
+                      document.getElementById('filter-speaker-md')?.value || 
+                      document.getElementById('filter-speaker-lg')?.value || '';
+  
+  let filterCategory = document.getElementById('filter-category')?.value || 
+                       document.getElementById('filter-category-md')?.value || 
+                       document.getElementById('filter-category-lg')?.value || '';
+  
+  return { searchInput, searchField, filterSpeaker, filterCategory };
+}
+
+// Sync filter values across all breakpoints
+function syncFilterValues(values) {
+  // Sync search inputs
+  ['search-input', 'search-input-md', 'search-input-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = values.searchInput || '';
   });
   
-  // Restore previous selection if it still exists
-  if (currentValue && Array.from(speakers).includes(currentValue)) {
-    speakerSelect.value = currentValue;
-  }
+  // Sync search fields
+  ['search-field', 'search-field-md', 'search-field-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = values.searchField || 'title';
+  });
+  
+  // Sync speaker filters
+  ['filter-speaker', 'filter-speaker-md', 'filter-speaker-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = values.filterSpeaker || '';
+  });
+  
+  // Sync category filters
+  ['filter-category', 'filter-category-md', 'filter-category-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = values.filterCategory || '';
+  });
+  
+  // Update clear button visibility
+  updateClearButtonVisibility(values.searchInput);
+}
+
+// Update clear button visibility based on search input
+function updateClearButtonVisibility(searchValue) {
+  const clearButtons = ['clear-search-mobile', 'clear-search-md', 'clear-search-lg'];
+  clearButtons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (searchValue && searchValue.length > 0) {
+        btn.classList.remove('hidden');
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+  });
 }
 
 // Apply all active filters and search
 function applyFilters() {
-  const searchInput = document.getElementById('search-input')?.value.toLowerCase() || '';
-  const searchField = document.getElementById('search-field')?.value || 'title';
-  const filterSpeaker = document.getElementById('filter-speaker')?.value || '';
-  const filterCategory = document.getElementById('filter-category')?.value || '';
+  const values = getFilterValues();
+  const searchInput = values.searchInput;
+  const searchField = values.searchField;
+  const filterSpeaker = values.filterSpeaker;
+  const filterCategory = values.filterCategory;
+  
+  // Sync all inputs
+  syncFilterValues(values);
   
   const recordingList = document.getElementById('recording-list');
   if (!recordingList) return;
@@ -870,42 +943,77 @@ function applyFilters() {
 document.addEventListener("DOMContentLoaded", function () {
   loadRecordings();
   
-  // Setup filter event listeners
-  const searchInput = document.getElementById('search-input');
-  const searchField = document.getElementById('search-field');
-  const filterSpeaker = document.getElementById('filter-speaker');
-  const filterCategory = document.getElementById('filter-category');
-  const clearFilters = document.getElementById('clear-filters');
+  // Setup search input listeners for all breakpoints
+  ['search-input', 'search-input-md', 'search-input-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+          applyFilters();
+        }, 300);
+      });
+    }
+  });
   
-  if (searchInput) {
-    // Debounce search input - wait 300ms after user stops typing
-    searchInput.addEventListener('input', () => {
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(() => {
+  // Setup search field listeners
+  ['search-field', 'search-field-md', 'search-field-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFilters);
+  });
+  
+  // Setup speaker filter listeners
+  ['filter-speaker', 'filter-speaker-md', 'filter-speaker-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFilters);
+  });
+  
+  // Setup category filter listeners
+  ['filter-category', 'filter-category-md', 'filter-category-lg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', applyFilters);
+  });
+  
+  // Setup clear filter buttons (all breakpoints)
+  ['clear-filters-md', 'clear-filters-lg'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        syncFilterValues({ searchInput: '', searchField: 'title', filterSpeaker: '', filterCategory: '' });
         applyFilters();
-      }, 300);
-    });
-  }
+      });
+    }
+  });
   
-  if (searchField) {
-    searchField.addEventListener('change', applyFilters);
-  }
+  // Setup clear search buttons (X inside search boxes)
+  ['clear-search-mobile', 'clear-search-md', 'clear-search-lg'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const values = getFilterValues();
+        values.searchInput = '';
+        syncFilterValues(values);
+        applyFilters();
+      });
+    }
+  });
   
-  if (filterSpeaker) {
-    filterSpeaker.addEventListener('change', applyFilters);
-  }
-  
-  if (filterCategory) {
-    filterCategory.addEventListener('change', applyFilters);
-  }
-  
-  if (clearFilters) {
-    clearFilters.addEventListener('click', () => {
-      if (searchInput) searchInput.value = '';
-      if (searchField) searchField.value = 'title';
-      if (filterSpeaker) filterSpeaker.value = '';
-      if (filterCategory) filterCategory.value = '';
-      applyFilters();
+  // Mobile filter toggle
+  const toggleBtn = document.getElementById('toggle-filters-mobile');
+  const mobileFilters = document.getElementById('mobile-filters');
+  if (toggleBtn && mobileFilters) {
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = mobileFilters.classList.toggle('hidden');
+      const icon = toggleBtn.querySelector('i');
+      if (icon) {
+        if (isHidden) {
+          // Filters are now hidden - show filter icon
+          icon.className = 'fas fa-filter';
+        } else {
+          // Filters are now visible - show X icon
+          icon.className = 'fas fa-times';
+        }
+      }
     });
   }
 });
