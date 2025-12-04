@@ -88,7 +88,7 @@ def inject_template_variables():
     # Makes variables available to all templates
     return {
         "ai_processing_error": _read_last_openai_error(),
-        "version": "3.6.0",  # Search/filter UI, deploy script consolidation, speaker detection improvements
+        "version": "3.6.1",  # Category system update + restore sound defaults feature
         "password_protected": bool(config.get('web_password', '').strip())
     }
 
@@ -953,6 +953,88 @@ def shutdown():
         return jsonify(
             {"success": False, "message": "Failed to shut down the system!"}
         ), 500
+
+
+@app.route("/api/restore-sound-defaults", methods=["POST"])
+@login_required
+def restore_sound_defaults():
+    """Restore default sound files from backups (individual or all)."""
+    try:
+        import shutil
+        
+        sounds_dir = BASE_DIR / "sounds"
+        defaults_dir = sounds_dir / "defaults"
+        
+        if not defaults_dir.exists():
+            return jsonify({
+                "success": False, 
+                "message": "Defaults directory not found"
+            }), 404
+        
+        # Get optional type parameter from request
+        data = request.get_json() or {}
+        restore_type = data.get('type')  # 'greeting', 'beep', 'time_exceeded', or None for all
+        
+        # Full map of backup files to their destination paths
+        all_restore_map = {
+            "greeting": (defaults_dir / "greeting-default.wav", sounds_dir / "greetings" / "default.wav"),
+            "beep": (defaults_dir / "beep-default.wav", sounds_dir / "beeps" / "default.wav"),
+            "time_exceeded": (defaults_dir / "time-exceeded-default.wav", sounds_dir / "time_exceeded" / "default.wav")
+        }
+        
+        # Filter to specific type if requested
+        if restore_type:
+            if restore_type not in all_restore_map:
+                return jsonify({
+                    "success": False,
+                    "message": f"Invalid type: {restore_type}"
+                }), 400
+            restore_map = {restore_type: all_restore_map[restore_type]}
+        else:
+            restore_map = all_restore_map
+        
+        restored = []
+        errors = []
+        
+        for sound_type, (source, dest) in restore_map.items():
+            if not source.exists():
+                errors.append(f"Backup file not found: {source.name}")
+                continue
+            
+            try:
+                # Ensure destination directory exists
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Copy the backup to the destination
+                shutil.copy2(source, dest)
+                restored.append(dest.name)
+                logger.info(f"Restored {source.name} → {dest}")
+            except Exception as e:
+                errors.append(f"Failed to restore {source.name}: {str(e)}")
+                logger.error(f"Error restoring {source.name}: {e}")
+        
+        if errors:
+            return jsonify({
+                "success": len(restored) > 0,
+                "message": f"Partially restored. {len(restored)} succeeded, {len(errors)} failed.",
+                "restored": restored,
+                "errors": errors
+            }), 207  # Multi-Status
+        
+        message = f"Successfully restored {restored[0]}" if len(restored) == 1 else f"Successfully restored {len(restored)} default sound files"
+        return jsonify({
+            "success": True,
+            "message": message,
+            "restored": restored
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to restore sound defaults: {e}")
+        return jsonify({
+            "success": False,
+            "message": f"Error restoring defaults: {str(e)}"
+        }), 500
+
 
 @app.route("/api/system-status")
 def system_status():

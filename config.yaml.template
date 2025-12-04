@@ -70,7 +70,7 @@ openai_api_key: ""                      # OpenAI API key (starts with sk-)
 openai_gpt_model: "gpt-5-nano"       # Fastest reasoning model variant; we disable heavy reasoning (minimal)
 openai_language: "en"                    # Language code (en, es, fr, etc., or "auto")
 openai_ignored_names: []                 # Names to exclude from speaker detection (e.g. bride/groom names)
-openai_categories: ["joyful", "heartfelt", "humorous", "nostalgic", "advice", "blessing", "toast", "gratitude", "apology", "other"]  # Available emotional categories for AI classification
+openai_categories: ["joyful", "heartfelt", "humorous", "nostalgic", "advice", "blessing", "toast", "gratitude", "apology", "well-wishes", "playful", "introduction", "announcement"]  # Available emotional categories for AI classification
 openai_processing_cooldown: 0            # PHASE 2 TEST: Immediate processing (0 = no delay)
 openai_allow_processing_during_call: true   # PHASE 2 TEST: Process while phone in use
 openai_compress_audio: true              # Convert WAV to MP3 before upload (saves 90% bandwidth)

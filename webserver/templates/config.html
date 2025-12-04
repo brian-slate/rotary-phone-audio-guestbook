@@ -166,6 +166,14 @@
                 value="{{ config['greeting_start_delay'] }}"
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
             </div>
+            
+            <!-- Restore Default Button -->
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button type="button" onclick="restoreSoundDefault('greeting')" 
+                class="w-full bg-gray-500 hover:bg-gray-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                <i class="fas fa-undo mr-1"></i>Restore Default
+              </button>
+            </div>
           </div>
 
           <!-- Beep settings -->
@@ -247,6 +255,14 @@
                 {% endif %}
               </div>
             </div>
+            
+            <!-- Restore Default Button -->
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button type="button" onclick="restoreSoundDefault('beep')" 
+                class="w-full bg-gray-500 hover:bg-gray-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                <i class="fas fa-undo mr-1"></i>Restore Default
+              </button>
+            </div>
           </div>
 
           <!-- Time exceeded settings -->
@@ -291,6 +307,14 @@
               <input type="number" step="0.1" id="time_exceeded_volume" name="time_exceeded_volume"
                 value="{{ config['time_exceeded_volume'] }}"
                 class="w-full px-3 py-2 border rounded bg-background dark:bg-dark-input-background text-text-primary dark:text-dark-input-text" />
+            </div>
+            
+            <!-- Restore Default Button -->
+            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button type="button" onclick="restoreSoundDefault('time_exceeded')" 
+                class="w-full bg-gray-500 hover:bg-gray-600 text-white rounded px-3 py-2 text-sm transition-colors">
+                <i class="fas fa-undo mr-1"></i>Restore Default
+              </button>
             </div>
           </div>
         </div>
@@ -1220,6 +1244,38 @@
       .catch(err => {
         console.error('Error deleting audio:', err);
         alert('Failed to delete audio file');
+      });
+    }
+  }
+
+  // Restore default sound file
+  function restoreSoundDefault(type) {
+    const typeNames = {
+      'greeting': 'Greeting',
+      'beep': 'Beep', 
+      'time_exceeded': 'Time Exceeded'
+    };
+    
+    const typeName = typeNames[type] || type;
+    
+    if (confirm(`Restore default ${typeName} sound file? This will replace the current default.wav.`)) {
+      fetch('/api/restore-sound-defaults', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ type: type })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert(data.message);
+          location.reload();
+        } else {
+          alert('Error: ' + data.message);
+        }
+      })
+      .catch(err => {
+        console.error('Error restoring default:', err);
+        alert('Failed to restore default sound file');
       });
     }
   }

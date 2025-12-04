@@ -137,23 +137,26 @@ function createRecordingItem(recording) {
   
   // Category badge with Tailwind pill style with border and dot
   const categoryConfig = {
-    joyful:    { bg: 'bg-yellow-50 dark:bg-yellow-950', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-600/10 dark:border-yellow-400/20', dot: 'fill-yellow-500 dark:fill-yellow-400' },
-    heartfelt: { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-700 dark:text-red-300', border: 'border-red-600/10 dark:border-red-400/20', dot: 'fill-red-500 dark:fill-red-400' },
-    humorous:  { bg: 'bg-green-50 dark:bg-green-950', text: 'text-green-700 dark:text-green-300', border: 'border-green-600/10 dark:border-green-400/20', dot: 'fill-green-500 dark:fill-green-400' },
-    nostalgic: { bg: 'bg-purple-50 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-600/10 dark:border-purple-400/20', dot: 'fill-purple-500 dark:fill-purple-400' },
-    advice:    { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-600/10 dark:border-blue-400/20', dot: 'fill-blue-500 dark:fill-blue-400' },
-    blessing:  { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-600/10 dark:border-indigo-400/20', dot: 'fill-indigo-500 dark:fill-indigo-400' },
-    toast:     { bg: 'bg-pink-50 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-600/10 dark:border-pink-400/20', dot: 'fill-pink-500 dark:fill-pink-400' },
-    gratitude: { bg: 'bg-teal-50 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-600/10 dark:border-teal-400/20', dot: 'fill-teal-500 dark:fill-teal-400' },
-    apology:   { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' },
-    other:     { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' }
+    joyful:        { bg: 'bg-yellow-50 dark:bg-yellow-950', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-600/10 dark:border-yellow-400/20', dot: 'fill-yellow-500 dark:fill-yellow-400' },
+    heartfelt:     { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-700 dark:text-red-300', border: 'border-red-600/10 dark:border-red-400/20', dot: 'fill-red-500 dark:fill-red-400' },
+    humorous:      { bg: 'bg-green-50 dark:bg-green-950', text: 'text-green-700 dark:text-green-300', border: 'border-green-600/10 dark:border-green-400/20', dot: 'fill-green-500 dark:fill-green-400' },
+    nostalgic:     { bg: 'bg-purple-50 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-600/10 dark:border-purple-400/20', dot: 'fill-purple-500 dark:fill-purple-400' },
+    advice:        { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-600/10 dark:border-blue-400/20', dot: 'fill-blue-500 dark:fill-blue-400' },
+    blessing:      { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-600/10 dark:border-indigo-400/20', dot: 'fill-indigo-500 dark:fill-indigo-400' },
+    toast:         { bg: 'bg-pink-50 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-600/10 dark:border-pink-400/20', dot: 'fill-pink-500 dark:fill-pink-400' },
+    gratitude:     { bg: 'bg-teal-50 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-600/10 dark:border-teal-400/20', dot: 'fill-teal-500 dark:fill-teal-400' },
+    apology:       { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' },
+    'well-wishes': { bg: 'bg-cyan-50 dark:bg-cyan-950', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-600/10 dark:border-cyan-400/20', dot: 'fill-cyan-500 dark:fill-cyan-400' },
+    playful:       { bg: 'bg-lime-50 dark:bg-lime-950', text: 'text-lime-700 dark:text-lime-300', border: 'border-lime-600/10 dark:border-lime-400/20', dot: 'fill-lime-500 dark:fill-lime-400' },
+    introduction:  { bg: 'bg-slate-50 dark:bg-slate-950', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-600/10 dark:border-slate-400/20', dot: 'fill-slate-500 dark:fill-slate-400' },
+    announcement:  { bg: 'bg-orange-50 dark:bg-orange-950', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-600/10 dark:border-orange-400/20', dot: 'fill-orange-500 dark:fill-orange-400' }
   };
   
   // Function to generate consistent color for unknown categories
   const getCategoryStyle = (categoryName) => {
-    // Handle null/undefined categories
+    // Handle null/undefined categories - return null to hide badge
     if (!categoryName) {
-      return categoryConfig['other'];
+      return null;
     }
     if (categoryConfig[categoryName]) {
       return categoryConfig[categoryName];
@@ -174,7 +177,7 @@ function createRecordingItem(recording) {
   };
   
   const category = getCategoryStyle(metadata.category);
-  const categoryBadge = metadata.category
+  const categoryBadge = (metadata.category && category)
     ? `<span class="inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs font-medium border ${category.bg} ${category.text} ${category.border}">
          <svg class="h-1.5 w-1.5 ${category.dot}" viewBox="0 0 6 6" aria-hidden="true">
            <circle cx="3" cy="3" r="3" />
@@ -607,20 +610,23 @@ function showTranscriptionModal(filename, recording) {
   
   // Generate category badge (reuse category config)
   const categoryConfig = {
-    joyful:    { bg: 'bg-yellow-50 dark:bg-yellow-950', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-600/10 dark:border-yellow-400/20', dot: 'fill-yellow-500 dark:fill-yellow-400' },
-    heartfelt: { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-700 dark:text-red-300', border: 'border-red-600/10 dark:border-red-400/20', dot: 'fill-red-500 dark:fill-red-400' },
-    humorous:  { bg: 'bg-green-50 dark:bg-green-950', text: 'text-green-700 dark:text-green-300', border: 'border-green-600/10 dark:border-green-400/20', dot: 'fill-green-500 dark:fill-green-400' },
-    nostalgic: { bg: 'bg-purple-50 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-600/10 dark:border-purple-400/20', dot: 'fill-purple-500 dark:fill-purple-400' },
-    advice:    { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-600/10 dark:border-blue-400/20', dot: 'fill-blue-500 dark:fill-blue-400' },
-    blessing:  { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-600/10 dark:border-indigo-400/20', dot: 'fill-indigo-500 dark:fill-indigo-400' },
-    toast:     { bg: 'bg-pink-50 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-600/10 dark:border-pink-400/20', dot: 'fill-pink-500 dark:fill-pink-400' },
-    gratitude: { bg: 'bg-teal-50 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-600/10 dark:border-teal-400/20', dot: 'fill-teal-500 dark:fill-teal-400' },
-    apology:   { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' },
-    other:     { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' }
+    joyful:        { bg: 'bg-yellow-50 dark:bg-yellow-950', text: 'text-yellow-700 dark:text-yellow-300', border: 'border-yellow-600/10 dark:border-yellow-400/20', dot: 'fill-yellow-500 dark:fill-yellow-400' },
+    heartfelt:     { bg: 'bg-red-50 dark:bg-red-950', text: 'text-red-700 dark:text-red-300', border: 'border-red-600/10 dark:border-red-400/20', dot: 'fill-red-500 dark:fill-red-400' },
+    humorous:      { bg: 'bg-green-50 dark:bg-green-950', text: 'text-green-700 dark:text-green-300', border: 'border-green-600/10 dark:border-green-400/20', dot: 'fill-green-500 dark:fill-green-400' },
+    nostalgic:     { bg: 'bg-purple-50 dark:bg-purple-950', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-600/10 dark:border-purple-400/20', dot: 'fill-purple-500 dark:fill-purple-400' },
+    advice:        { bg: 'bg-blue-50 dark:bg-blue-950', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-600/10 dark:border-blue-400/20', dot: 'fill-blue-500 dark:fill-blue-400' },
+    blessing:      { bg: 'bg-indigo-50 dark:bg-indigo-950', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-600/10 dark:border-indigo-400/20', dot: 'fill-indigo-500 dark:fill-indigo-400' },
+    toast:         { bg: 'bg-pink-50 dark:bg-pink-950', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-600/10 dark:border-pink-400/20', dot: 'fill-pink-500 dark:fill-pink-400' },
+    gratitude:     { bg: 'bg-teal-50 dark:bg-teal-950', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-600/10 dark:border-teal-400/20', dot: 'fill-teal-500 dark:fill-teal-400' },
+    apology:       { bg: 'bg-gray-50 dark:bg-gray-950', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-600/10 dark:border-gray-400/20', dot: 'fill-gray-500 dark:fill-gray-400' },
+    'well-wishes': { bg: 'bg-cyan-50 dark:bg-cyan-950', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-600/10 dark:border-cyan-400/20', dot: 'fill-cyan-500 dark:fill-cyan-400' },
+    playful:       { bg: 'bg-lime-50 dark:bg-lime-950', text: 'text-lime-700 dark:text-lime-300', border: 'border-lime-600/10 dark:border-lime-400/20', dot: 'fill-lime-500 dark:fill-lime-400' },
+    introduction:  { bg: 'bg-slate-50 dark:bg-slate-950', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-600/10 dark:border-slate-400/20', dot: 'fill-slate-500 dark:fill-slate-400' },
+    announcement:  { bg: 'bg-orange-50 dark:bg-orange-950', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-600/10 dark:border-orange-400/20', dot: 'fill-orange-500 dark:fill-orange-400' }
   };
   
-  const category = categoryConfig[recording.category] || categoryConfig['other'];
-  const categoryBadge = recording.category
+  const category = categoryConfig[recording.category];
+  const categoryBadge = (recording.category && category)
     ? `<span class="inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs font-medium border ${category.bg} ${category.text} ${category.border}">
          <svg class="h-1.5 w-1.5 ${category.dot}" viewBox="0 0 6 6" aria-hidden="true">
            <circle cx="3" cy="3" r="3" />
