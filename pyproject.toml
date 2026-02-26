@@ -1,7 +1,7 @@
 [project]
 name = "rotary-phone-audio-guestbook"
 version = "3.4.0"
-description = "This project transforms a rotary phone into a voice recorder for use at special events (i.e. wedding audio guestbook, etc.)."
+description = "AI-powered audio guestbook using vintage rotary phone - automatic transcription, speaker detection, emotional categorization, and modern web interface"
 readme = "README.md"
 requires-python = ">=3.9.2"
 dependencies = [

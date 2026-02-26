@@ -1,13 +1,53 @@
+# IDE and Editor Files
 *.code*
 *.trunk*
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local assistant context
+.warp/
+CLAUDE.md
+
+# Python
 __pycache__
-sounds/voicemail.wav
+*.pyc
+*.pyo
 .venv/
+env/
+venv/
+*.egg-info/
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Sensitive Files
+.env
+.env.*
+*.key
+*.pem
+*.secret
+credentials.*
+config.yaml
+config.yaml.merged
+recordings_metadata.json
+last_openai_error.json
+
+# Project-specific
+sounds/voicemail.wav
 notes.txt
 recordings/*
-env/
-node_modules
+test/**/*.wav
+
+# Build and Distribution
 *.img
 *.gz
-*.egg-info/
-test/**/*.wav
+dist/
+build/
+
+# System Files
+.DS_Store
+Thumbs.db

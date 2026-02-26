@@ -2,7 +2,7 @@
   "name": "rotary-phone-audio-guestbook",
   "version": "1.0.0",
   "private": true,
-  "description": "BLACK BOX - A retro-modern voice recording system using a vintage rotary phone.",
+  "description": "AI-powered audio guestbook - vintage rotary phone with transcription, speaker detection, and modern web UI",
   "main": "index.js",
   "directories": {
     "test": "tests"
