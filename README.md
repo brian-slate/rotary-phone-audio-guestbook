@@ -2,8 +2,6 @@
 
 An intelligent audio recording system that transforms a vintage rotary phone into an AI-powered voice recorder for events. Guests pick up the phone, hear a customizable greeting, leave a message, and the system automatically transcribes and categorizes recordings using OpenAI's Whisper and GPT models.
 
-> Want a hero image here? Add a photo of *your* build and update this README.
-
 ## Features
 
 ### Core Functionality
