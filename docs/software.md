@@ -26,18 +26,12 @@
 - The page will dynamically pull any recording stored in the `/recordings/` directory into a list, and will be updated by refreshing your browser.
 - A fully built .service file can be run automatically in addition to the audioGuestBook. Make sure to copy and paste this service to `/etc/systemd/system` to be able to run it with systemctl.
 
-**UPDATE**:
+## Admin Web UI
 
-  As of [release **v1.0.2**](https://github.com/nickpourazima/rotary-phone-audio-guestbook/releases/tag/v1.0.2) the webserver has been updated with a modern interface using Tailwind CSS to ensure responsiveness and better visual clarity.
+This project includes a modern, responsive admin UI (Tailwind) for:
+- Browsing, playing, downloading, and deleting recordings
+- Editing configuration from the Settings page
+- AI processing metadata display (when enabled)
+- WiFi network management (scan/add/delete + priorities)
 
-  New features include:
-
-- Ability to edit recorded file names directly from the web interface.
-- Bulk/individual/selectable recorded file downloads.
-- Playback recorded files directly on the webserver.
-- Delete recordings.
-![image](../images/webserver_home_dark.png)
-- All `config.yaml` params are configurable from the settings page.
-![image](../images/webserver_settings_dark.png)
-- Dark/light themes.
-![image](../images/webserver_home_light.png)
+See the main [README](../README.md) for the feature overview and links to the relevant docs.
