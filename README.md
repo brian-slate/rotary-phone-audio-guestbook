@@ -2,7 +2,7 @@
 
 An intelligent audio recording system that transforms a vintage rotary phone into an AI-powered voice recorder for events. Guests pick up the phone, hear a customizable greeting, leave a message, and the system automatically transcribes and categorizes recordings using OpenAI's Whisper and GPT models.
 
-![Rotary Phone](images/final_result_2.jpg)
+> Want a hero image here? Add a photo of *your* build and update this README.
 
 ## Features
 
@@ -29,6 +29,7 @@ An intelligent audio recording system that transforms a vintage rotary phone int
 - **Flexible GPIO Control** - Configurable pins for hook switch, recording button, and shutdown
 - **Custom Audio Files** - Upload your own greeting, beep, and timeout messages
 - **Password Protection** - Optional web interface authentication
+- **WiFi Management (Web UI)** - Scan/add/delete WiFi networks and set priorities from the Settings page
 - **Recording Filters** - Set minimum duration and file size thresholds
 - **AI Customization** - Configure ignored names (e.g., bride/groom), categories, and language settings
 
@@ -186,7 +187,7 @@ openai_compress_audio: true
 - Copies service files
 - Restarts all services
 
-See [Configuration Guide](docs/configuration.md) for detailed settings documentation.
+See [Configuration Guide](docs/configuration.md) for detailed settings documentation. For moving the device between networks, see [WiFi Management](docs/wifi.md).
 
 ### Project Structure
 

@@ -13,6 +13,7 @@ This directory contains comprehensive documentation for the Rotary Phone Audio G
 - **[configuration.md](configuration.md)** - Complete configuration reference for `config.yaml`
 - **[deployment.md](deployment.md)** - Deployment scripts and workflow guide
 - **[development.md](development.md)** - Development setup, testing, and contribution guide
+- **[wifi.md](wifi.md)** - Manage WiFi networks from the web UI
 - **[security.md](security.md)** - Security best practices and sensitive data protection
 
 ### Advanced Features
