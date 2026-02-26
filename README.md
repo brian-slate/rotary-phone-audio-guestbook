@@ -291,4 +291,4 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 ---
 
-*This project was originally inspired by [Nick Pourazima's rotary-phone-audio-guestbook](https://github.com/nickpourazima/rotary-phone-audio-guestbook). Original Copyright (c) 2022 Nick Pourazima.*
+*Attribution: inspired by [Nick Pourazima](https://github.com/nickpourazima)'s original [rotary-phone-audio-guestbook](https://github.com/nickpourazima/rotary-phone-audio-guestbook) (MIT).*
